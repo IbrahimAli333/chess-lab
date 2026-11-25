@@ -175,7 +175,7 @@ html{scroll-padding-top:12px}
 <div class="panel"><h2>Saved games</h2><div class="hist" id="hist"><p style="margin:0;color:var(--muted)">Games you review are saved here automatically.</p></div></div>
 <div class="panel"><h2>Your openings</h2><div id="opens"><p style="margin:0;color:var(--muted)">Your results by opening show up after a few games.</p></div></div>
 </div>
-<footer style="margin-top:24px">Engine: Stockfish 10 (GPLv3, source at github.com/official-stockfish/Stockfish), running in your browser. Move logic: chess.js (BSD 2-Clause). Pieces by Colin M.L. Burnett (CC BY-SA 3.0). Opening names: lichess-org/chess-openings (CC0). Ratings follow chess.com's style but are not identical to it.</footer>
+<footer style="margin-top:24px">Engine: Stockfish 19 lite, built for the web by Stockfish.js (GPLv3, source at github.com/nmrugg/stockfish.js and github.com/official-stockfish/Stockfish), with Stockfish 10 as a fallback for older browsers. Everything runs in your browser. Engine in use: <span id="engName">starts with your first review</span>. Move logic: chess.js (BSD 2-Clause). Pieces by Colin M.L. Burnett (CC BY-SA 3.0). Opening names: lichess-org/chess-openings (CC0). Ratings follow chess.com's style but are not identical to it.</footer>
 </div></section>
 
 <script src="chess.js"></script>
@@ -284,10 +284,13 @@ if(k>1&&['mistake','blunder','miss'].includes(G.cls[k-1])&&loss>=0.10&&!['best',
 G.cls[k]=c;G.loss[k]=loss}
 
 function prog(n,T,txt){const p=Math.round(n/(T+1)*100);$('pfill').style.width=p+'%';$('ppc').textContent=p+'%';$('ptx').textContent=txt}
-function startEngine(){return new Promise((res,rej)=>{try{const w=new Worker('stockfish.js');
-let ok=false;const t=setTimeout(()=>{if(!ok)rej(new Error('timeout'))},25000);
-w.onmessage=e=>{const l=String(e.data);if(l.startsWith('readyok')&&!ok){ok=true;clearTimeout(t);res(w)}};w.onerror=()=>{clearTimeout(t);rej(new Error('load'))};
-w.postMessage('uci');w.postMessage('setoption name MultiPV value 2');w.postMessage('isready')}catch(e){rej(e)}})}
+const ENGINES=[{f:'stockfish-19-lite-single.js',n:'Stockfish 19 lite'},{f:'stockfish.js',n:'Stockfish 10 (fallback)'}];
+let ENG=null;
+function bootEngine(e){return new Promise((res,rej)=>{let w;try{w=new Worker(e.f)}catch(x){rej(x);return}
+let done=false;const fail=m=>{if(done)return;done=true;clearTimeout(t);try{w.terminate()}catch(x){}rej(new Error(m))};const t=setTimeout(()=>fail('timeout'),20000);
+w.onmessage=ev=>{const l=String(ev.data);if(l.startsWith('readyok')&&!done){done=true;clearTimeout(t);res(w)}};w.onerror=ev=>{if(ev&&ev.preventDefault)ev.preventDefault();fail('load')};
+w.postMessage('uci');w.postMessage('setoption name MultiPV value 2');w.postMessage('isready')})}
+async function startEngine(){let err;for(const e of(ENG?[ENG]:ENGINES)){try{const w=await bootEngine(e);ENG=e;$('engName').textContent=e.n;return w}catch(x){err=x}}throw err||new Error('engine')}
 async function analyze(){const my=++gen;const T=G.san.length;prog(0,T,'Starting Stockfish');
 try{if(!worker)worker=await startEngine()}catch(e){$('ptx').textContent="Stockfish couldn't start in this browser. Try the page on a computer.";$('ppc').textContent='';return}
 if(my!==gen)return;worker.postMessage('ucinewgame');let cur=0,lines={},pv1='';

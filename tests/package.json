@@ -1,0 +1,13 @@
+{
+  "name": "chess-lab-tests",
+  "private": true,
+  "description": "Browser tests for Chess Lab. Not part of the site itself.",
+  "type": "module",
+  "scripts": {
+    "test": "node review.mjs",
+    "test:isolated": "node review.mjs --isolated"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.0"
+  }
+}
