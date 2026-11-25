@@ -1,0 +1,15 @@
+# Static site: no build step, the repo root is published as is.
+[build]
+  publish = "."
+
+# Cross-origin isolation. These two headers turn on SharedArrayBuffer, which the
+# multi-threaded Stockfish build (stockfish-19-lite.js) needs. Without them the
+# site still works and uses the single-threaded build.
+# Under require-corp every cross-origin resource must opt in:
+#   - Google Fonts: sends Cross-Origin-Resource-Policy: cross-origin and CORS headers
+#   - api.chess.com: fetched with CORS (Access-Control-Allow-Origin: *)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
