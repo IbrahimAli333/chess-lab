@@ -174,6 +174,11 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 .vline{line-height:3;margin:6px 0}.vm{min-height:44px;min-width:44px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
 .ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}.ln.on small{color:var(--ink)}
 /* training features (train.js) */
+#pzBoard .sq{cursor:pointer}
+.pzn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:#A5D86A;color:#1C1B19;font-size:12px;font-weight:800}
+.ok.lt{background:#B5E08C}.ok.dk{background:#7FB04A}.no.lt{background:#F4B3A8}.no.dk{background:#D9776A}
+.pzi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pzi:last-child{border-bottom:0}.pzi b{font-weight:600}.pzi span{color:var(--muted);white-space:nowrap}
 .clk{position:relative;height:96px;border-radius:10px;background:var(--soft);overflow:hidden;margin:4px 0 10px}
 .clk svg{position:absolute;inset:0;width:100%;height:100%}
 .clk .cb{cursor:pointer}
@@ -200,7 +205,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <header class="top">
 <div class="bar"><div class="wrapc">
 <h1><span class="bl">Ibrahim Ali's </span>chess lab</h1>
-<nav class="tabs" aria-label="Sections"><a href="#review" data-tab="review" aria-current="page">Review</a><a href="#openings" data-tab="openings">Openings</a><a href="#progress" data-tab="progress">Progress</a></nav>
+<nav class="tabs" aria-label="Sections"><a href="#review" data-tab="review" aria-current="page">Review</a><a href="#puzzles" data-tab="puzzles">Puzzles<span class="pzn" id="pzTabN" hidden></span></a><a href="#openings" data-tab="openings">Openings</a><a href="#progress" data-tab="progress">Progress</a></nav>
 <button id="newBtn" type="button" aria-expanded="true" aria-controls="loader">Load<span class="lg"> a game</span></button>
 </div></div>
 <div class="tprog" aria-hidden="true"><div id="tfill"></div></div>
@@ -262,6 +267,23 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <div class="panel" id="coachBox"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h2 style="margin:0">Coach's notes</h2><button id="coachBtn" type="button" class="go">Copy game for Claude</button></div><p id="coachHint" class="mut sm">Copies this game with everything the review found: each mistake, the line that punishes it, the better move and the habit. Paste it into a chat with Claude for a full coaching review.</p><div class="coach" id="coach"></div></div>
 </div>
 </div>
+</section>
+</div>
+</div></section>
+
+<section class="view" id="puzzles" aria-label="Puzzles from your games" hidden><div class="wrapc">
+<h2 style="font-size:22px">Puzzles from your games</h2>
+<p class="mut" style="max-width:720px">Every mistake, miss and blunder you made in a reviewed game becomes a puzzle: find the move you missed. Solve it cleanly and it comes back after 1, 3, 7, 16 and then 35 days. Miss it and it comes back soon, until it sticks.</p>
+<div class="grid">
+<section aria-label="Puzzle board">
+<div class="pbar"><span id="pzName">No puzzles yet</span><small id="pzStep"></small></div>
+<div class="bd" id="pzBoard" role="grid" aria-label="Puzzle board"></div>
+<div class="tnav"><button id="pzHint" type="button">Hint</button><button id="pzShow" type="button">Show answer</button><button id="pzNext" type="button" class="go">Next puzzle</button></div>
+<div class="tnote" id="pzNote" aria-live="polite"></div>
+</section>
+<section aria-label="Your puzzles">
+<div class="cards" id="pzStats" style="margin-bottom:14px"></div>
+<div class="panel"><h2>Coming up</h2><div id="pzList"><p class="mut" style="margin:0">Review a few of your games first. Your mistakes from them show up here.</p></div></div>
 </section>
 </div>
 </div></section>
@@ -878,7 +900,7 @@ const STABS=['moves','mist','sum'];
 function stab(t){STABS.forEach(x=>{$('st-'+x).setAttribute('aria-selected',x===t);$('sp-'+x).hidden=x!==t});if(t==='moves')draw()}
 STABS.forEach(x=>{$('st-'+x).onclick=()=>stab(x)});
 // top-level tabs follow the address hash, so the back button and links work
-const TABS=['review','openings','progress'];
+const TABS=['review','puzzles','openings','progress'];
 function show(t){if(!TABS.includes(t))t='review';TABS.forEach(x=>{$(x).hidden=x!==t});document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.tab===t)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=(t==='review'?'':t[0].toUpperCase()+t.slice(1)+' | ')+"Ibrahim Ali's Chess Lab";if(t==='review')draw()}
 function go(t){show(t);if(location.hash.slice(1)!==t&&(location.hash||t!=='review'))location.hash=t}
 document.querySelector('.tabs').addEventListener('click',e=>{const a=e.target.closest('a');if(a){show(a.dataset.tab);window.scrollTo(0,0)}});

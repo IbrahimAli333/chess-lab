@@ -178,4 +178,281 @@ on('cl:games', renderClockStats);
 renderClockStats();
 renderClockBox();
 
+// ---------------------------------------------------------------------------
+// Shared: a board you can click on, and a quiet engine for checking moves
+// ---------------------------------------------------------------------------
+const uciMove = u => ({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: u[4] || 'q' });
+function boardHtml(fen, o) {
+  const rows = fen.split(' ')[0].split('/').map(r => { const a = []; for (const c of r) { if (/\d/.test(c)) for (let k = 0; k < +c; k++) a.push(''); else a.push(c); } return a; });
+  let h = '';
+  for (let vr = 0; vr < 8; vr++) for (let vc = 0; vc < 8; vc++) {
+    const r = o.bottom === 'w' ? vr : 7 - vr, c = o.bottom === 'w' ? vc : 7 - vc, sq = 'abcdefgh'[c] + (8 - r), light = (r + c) % 2 === 0, pc = rows[r][c];
+    let cl = 'sq ' + (light ? 'lt' : 'dk');
+    if (o.last && (sq === o.last.from || sq === o.last.to)) cl += ' hl';
+    if (sq === o.sel) cl += ' sel';
+    if (o.targets && o.targets.includes(sq)) cl += ' tgt';
+    if (o.hint === sq) cl += ' hint';
+    if (o.marks && o.marks[sq]) cl += ' ' + o.marks[sq];
+    let inner = pc ? '<span class="pc pc-' + (pc === pc.toUpperCase() ? 'w' : 'b') + pc.toUpperCase() + '"></span>' : '';
+    const cc = light ? '#56793A' : '#FFFFFF';
+    if (vc === 0) inner += '<span class="co" style="top:4px;left:4px;color:' + cc + '">' + (8 - r) + '</span>';
+    if (vr === 7) inner += '<span class="co" style="bottom:4px;right:4px;color:' + cc + '">' + 'abcdefgh'[c] + '</span>';
+    h += '<div class="' + cl + '" data-sq="' + sq + '" role="gridcell" aria-label="' + sq + (pc ? ' ' + (pc === pc.toUpperCase() ? 'white ' : 'black ') + ({ p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' })[pc.toLowerCase()] : '') + '">' + inner + '</div>';
+  }
+  return h;
+}
+let checkW = null;
+async function checker() {
+  if (!checkW) { checkW = await CL.startEngine(); checkW.postMessage('setoption name MultiPV value 1'); }
+  return checkW;
+}
+// Score of a position for the side to move, in centipawns (mate as +-(10000 - n)).
+function scoreFen(w, fen, go) {
+  return new Promise(res => {
+    let cp = 0;
+    w.onmessage = e => {
+      const l = String(e.data), s = l.match(/score (cp|mate) (-?\d+)/);
+      if (s && !/bound/.test(l)) { cp = +s[2]; if (s[1] === 'mate') cp = cp > 0 ? 10000 - cp : -10000 - cp; }
+      if (l.startsWith('bestmove')) res(cp);
+    };
+    w.postMessage('position fen ' + fen);
+    w.postMessage(go || 'go depth 14 movetime 700');
+  });
+}
+// Win chance for the player who just moved, after the move: from the opponent's score.
+async function winAfter(fen) {
+  const t = new Chess(fen);
+  if (t.in_checkmate()) return 1;
+  if (t.game_over()) return 0.5;
+  return 1 - CL.wpW(await scoreFen(await checker(), fen));
+}
+
+// ---------------------------------------------------------------------------
+// 2. Puzzles from your own mistakes, with spaced repetition
+// ---------------------------------------------------------------------------
+const PUZ = 'ccr-puz', DAY = 864e5, STEPS = [1, 3, 7, 16, 35], RETRY = 10 * 60 * 1000;
+const PZ_CLS = ['mistake', 'miss', 'blunder'];
+const SEVN = { mistake: 1, miss: 2, blunder: 3 };
+let PS = rd(PUZ, {});
+backupParts.push(() => ({ puzzles: rd(PUZ, {}) }));
+restoreParts.push(j => {
+  if (!j || !j.puzzles || typeof j.puzzles !== 'object') return;
+  const cur = rd(PUZ, {});
+  for (const [id, s] of Object.entries(j.puzzles)) if (s && (!cur[id] || (s.last || 0) > (cur[id].last || 0))) cur[id] = s;
+  wr(PUZ, cur); PS = cur;
+});
+
+function allPuzzles() {
+  const out = [];
+  for (const d of savedGames()) {
+    for (let k = 1; k <= d.san.length; k++) {
+      const c = d.cls[k];
+      if (!PZ_CLS.includes(c) || (k % 2 === 1) !== (d.me === 'w')) continue;
+      if ((d.loss[k] || 0) < 0.1 || !d.best[k - 1] || d.best[k - 1] === '(none)') continue;
+      out.push({ pid: d.id + ':' + k, d, k, cls: c, opp: d.me === 'w' ? d.black : d.white });
+    }
+  }
+  return out;
+}
+function pzQueue() {
+  const all = allPuzzles(), now = Date.now();
+  const due = all.filter(p => PS[p.pid] && PS[p.pid].due <= now).sort((a, b) => PS[a.pid].due - PS[b.pid].due);
+  const fresh = all.filter(p => !PS[p.pid]).sort((a, b) => (b.d.savedAt || 0) - (a.d.savedAt || 0) || SEVN[b.cls] - SEVN[a.cls] || a.k - b.k);
+  const later = all.filter(p => PS[p.pid] && PS[p.pid].due > now).sort((a, b) => PS[a.pid].due - PS[b.pid].due);
+  return { all, due, fresh, later, ready: due.concat(fresh) };
+}
+function record(p, clean) {
+  const s = PS[p.pid] || { b: 0, n: 0, ok: 0 };
+  s.n++; s.last = Date.now();
+  if (clean) { s.ok++; s.b = Math.min(s.b + 1, STEPS.length); s.due = Date.now() + STEPS[s.b - 1] * DAY; }
+  else { s.b = 0; s.due = Date.now() + RETRY; }
+  PS[p.pid] = s;
+  wr(PUZ, PS);
+}
+
+// The moves to find: the engine's best move, and while the line stays forcing
+// (your next move is a capture, check or promotion) up to two more of yours.
+function solutionOf(g, k) {
+  const pv = (g.pv[k - 1] || '').split(' ').filter(Boolean);
+  const u = pv[0] === g.best[k - 1] ? pv : [g.best[k - 1]];
+  const ch = new Chess(g.fens[k - 1]), sol = [];
+  for (let j = 0; j < u.length; j += 2) {
+    const m = ch.move(uciMove(u[j]));
+    if (!m) break;
+    sol.push(u[j]);
+    if (ch.in_checkmate() || sol.length >= 5 || !u[j + 1] || !u[j + 2]) break;
+    const t = new Chess(ch.fen()), r = t.move(uciMove(u[j + 1])), n = r && t.move(uciMove(u[j + 2]));
+    if (!n || !(n.captured || n.promotion || /[+#]/.test(n.san))) break;
+    ch.move(uciMove(u[j + 1])); sol.push(u[j + 1]);
+  }
+  return sol;
+}
+
+let P = null;
+const pzSay = h => { $('pzNote').innerHTML = h; };
+function pzDraw() {
+  if (!P) return;
+  const tg = P.sel && !P.done ? P.ch.moves({ square: P.sel, verbose: true }).map(m => m.to) : [];
+  $('pzBoard').innerHTML = boardHtml(P.ch.fen(), { bottom: P.side, last: P.last, sel: P.sel, targets: tg, hint: P.hintSq, marks: P.marks });
+  const mine = Math.ceil(P.sol.length / 2), done = Math.min(mine, Math.ceil(P.step / 2));
+  $('pzStep').textContent = mine > 1 ? 'Move ' + Math.min(done + 1, mine) + ' of ' + mine : '';
+}
+function pzStart(p) {
+  const g = gameOf(p.d);
+  if (!g || !g.fens[p.k - 1]) return false;
+  const sol = solutionOf(g, p.k);
+  if (!sol.length) return false;
+  P = { p, g, k: p.k, sol, ch: new Chess(g.fens[p.k - 1]), side: g.fens[p.k - 1].split(' ')[1], step: 0, wrong: 0, helped: false, recorded: false, done: false, busy: false,
+        last: p.k > 1 ? g.vm[p.k - 2] : null, sel: null, hintSq: null, marks: null };
+  const s = PS[p.pid];
+  $('pzName').textContent = (P.side === 'w' ? 'White' : 'Black') + ' to move';
+  pzDraw();
+  pzSay('<b>Find a better move than ' + esc(g.san[p.k - 1]) + '.</b><div class="mut">From your game vs ' + esc(p.opp) + (p.d.date ? ', ' + esc(p.d.date) : '') + ', move ' + Math.ceil(p.k / 2) + '. In the game you played ' + esc(g.san[p.k - 1]) + ' here, ' + (p.cls === 'miss' ? 'a miss' : 'a ' + p.cls) + '.' + (s ? ' You have seen this one ' + s.n + (s.n > 1 ? ' times.' : ' time.') : '') + '</div>');
+  $('pzShow').disabled = false; $('pzHint').disabled = false;
+  pzSide();
+  return true;
+}
+function pzNext(skip) {
+  const q = pzQueue();
+  const list = q.ready.filter(p => !skip || !P || p.pid !== P.p.pid);
+  for (const p of list) if (pzStart(p)) return;
+  P = null;
+  $('pzBoard').innerHTML = boardHtml('8/8/8/8/8/8/8/8 w - - 0 1', { bottom: 'w' });
+  $('pzName').textContent = q.all.length ? 'All done for now' : 'No puzzles yet';
+  $('pzStep').textContent = '';
+  $('pzShow').disabled = true; $('pzHint').disabled = true;
+  const nx = q.later[0];
+  pzSay(q.all.length ? '<b>Nothing due right now.</b> <span class="mut">Your next puzzle comes back ' + whenText(PS[nx.pid].due) + '. Review more games to get new ones.</span>'
+    : '<b>No puzzles yet.</b> <span class="mut">Review a few of your games. Every mistake, miss or blunder of yours becomes a puzzle here.</span>');
+  pzSide();
+}
+function whenText(t) {
+  const d = t - Date.now();
+  if (d <= 0) return 'now';
+  if (d < 3600e3) return 'in ' + Math.max(1, Math.round(d / 60e3)) + ' min';
+  if (d < DAY) return 'in ' + Math.round(d / 3600e3) + ' h';
+  const n = Math.round(d / DAY);
+  return n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+}
+function pzSide() {
+  const q = pzQueue(), vals = Object.values(PS);
+  const mastered = q.all.filter(p => PS[p.pid] && PS[p.pid].b >= STEPS.length).length;
+  $('pzStats').innerHTML = [['Ready now', q.ready.length], ['New', q.fresh.length], ['Solved cleanly', vals.reduce((a, s) => a + (s.ok || 0), 0)], ['Learned', mastered + ' of ' + q.all.length]]
+    .map(c => '<div class="card"><div class="k">' + c[0] + '</div><div class="v">' + c[1] + '</div></div>').join('');
+  const n = q.ready.length, tab = $('pzTabN');
+  if (tab) { tab.hidden = !n; tab.textContent = n > 99 ? '99+' : n; }
+  const rows = q.due.concat(q.fresh, q.later).slice(0, 10);
+  $('pzList').innerHTML = rows.length ? rows.map(p => {
+    const s = PS[p.pid], when = !s ? 'new' : s.due <= Date.now() ? 'due now' : whenText(s.due);
+    return '<button type="button" class="pzi tm" data-pz="' + esc(p.pid) + '" style="width:100%;margin:0 0 6px"><b>' + CL.badge(p.cls) + ' ' + esc(Math.ceil(p.k / 2) + (p.k % 2 ? '. ' : '... ') + p.d.san[p.k - 1] + ' vs ' + p.opp) + '</b><span>' + esc(when) + '</span></button>';
+  }).join('') + (q.all.length > rows.length ? '<p class="tip" style="margin:8px 0 0">' + (q.all.length - rows.length) + ' more.</p>' : '')
+    : '<p class="mut" style="margin:0">Review a few of your games first. Your mistakes from them show up here.</p>';
+}
+
+function pzFinish(msg) {
+  P.done = true; P.sel = null;
+  const clean = P.wrong === 0 && !P.helped;
+  if (!P.recorded) { record(P.p, clean); P.recorded = true; }
+  const L = CL.coachMove(P.g, P.k), s = PS[P.p.pid];
+  pzDraw();
+  pzSay('<span class="lab"><b>' + CL.badge(clean ? 'best' : 'good') + ' ' + esc(msg) + '</b></span>' +
+    (L && L.what ? '<div style="margin-top:6px"><b>Why ' + esc(P.g.san[P.k - 1]) + ' was wrong:</b> ' + esc(L.what) + '</div>' : '') +
+    (L && L.habit ? '<div style="margin-top:6px"><b>Habit:</b> ' + esc(L.habit) + '</div>' : '') +
+    '<div class="mut" style="margin-top:6px">' + (clean ? 'Solved cleanly. It comes back ' + whenText(s.due) + '.' : 'It comes back ' + whenText(s.due) + ' so you can try again.') + '</div>' +
+    '<button type="button" id="pzOpen" style="margin-top:8px">Open this move in the review</button>');
+  $('pzShow').disabled = true; $('pzHint').disabled = true;
+  pzSide();
+}
+function pzFail() { if (!P.recorded) { record(P.p, false); P.recorded = true; pzSide(); } }
+
+// play the opponent's reply from the solution, then wait for the next move
+function pzReply() {
+  const u = P.sol[P.step];
+  P.busy = true;
+  setTimeout(() => {
+    if (!P || !u) return;
+    const m = P.ch.move(uciMove(u));
+    P.step++; P.last = m; P.marks = null; P.busy = false;
+    pzDraw();
+    pzSay('<b>Good. ' + esc(m.san) + ' is the reply.</b> <span class="mut">Keep going: there is more to win.</span>');
+  }, 500);
+}
+async function pzTry(from, to) {
+  const want = P.sol[P.step];
+  const t = new Chess(P.ch.fen());
+  const promo = want && want.slice(0, 4) === from + to && want[4] ? want[4] : 'q';
+  const m = t.move({ from, to, promotion: promo });
+  if (!m) return;
+  const uci = m.from + m.to + (m.promotion || '');
+  P.sel = null; P.hintSq = null;
+  const good = () => {
+    P.ch.move({ from, to, promotion: promo }); P.last = m; P.marks = { [m.to]: 'ok' }; P.step++;
+    if (P.step >= P.sol.length || P.ch.game_over()) { pzFinish(t.in_checkmate() ? m.san + ' is checkmate!' : m.san + ' is right!'); return; }
+    pzDraw(); pzReply();
+  };
+  if (uci === want || t.in_checkmate()) { good(); return; }
+  if (P.step === 0 && uci === P.g.ucis[P.k - 1]) { P.wrong++; pzFail(); P.marks = { [m.to]: 'no' }; pzDraw(); pzSay('<b>' + esc(m.san) + ' is what you played in the game.</b> <span class="mut">Look for something better. Check what that move leaves undefended.</span>'); return; }
+  // any other move: ask Stockfish whether it is about as good as the solution
+  P.busy = true; P.marks = { [m.to]: 'sel' }; pzDraw();
+  pzSay('<span class="mut">Checking ' + esc(m.san) + ' with Stockfish...</span>');
+  let ok = false;
+  try {
+    const before = P.ch.fen(), b2 = new Chess(before); b2.move(uciMove(want));
+    const mineW = await winAfter(t.fen()), bestW = await winAfter(b2.fen());
+    ok = mineW >= bestW - 0.03 || (mineW >= 0.97 && bestW >= 0.97);
+  } catch (e) { ok = false; }
+  P.busy = false;
+  if (!P || P.done) return;
+  if (ok) {
+    P.ch.move({ from, to, promotion: promo }); P.last = m; P.marks = { [m.to]: 'ok' };
+    const best = new Chess(P.g.fens[P.k - 1]).move(uciMove(P.sol[0]));
+    pzFinish(m.san + ' works too.' + (P.step === 0 && best ? ' The engine\'s first choice was ' + best.san + '.' : ''));
+    return;
+  }
+  P.wrong++; pzFail(); P.marks = { [m.to]: 'no' }; pzDraw();
+  pzSay('<b>Not ' + esc(m.san) + '.</b> <span class="mut">It gives back most of the advantage. Try again' + (P.wrong >= 2 ? ', or tap Hint.' : '.') + '</span>');
+}
+$('pzBoard').addEventListener('click', e => {
+  const el = e.target.closest('[data-sq]');
+  if (!el || !P || P.done || P.busy) return;
+  const sq = el.dataset.sq, pc = P.ch.get(sq);
+  if (pc && pc.color === P.ch.turn()) { P.sel = sq === P.sel ? null : sq; P.marks = null; pzDraw(); return; }
+  if (!P.sel) return;
+  if (!P.ch.moves({ square: P.sel, verbose: true }).some(m => m.to === sq)) { P.sel = null; pzDraw(); return; }
+  pzTry(P.sel, sq);
+});
+$('pzHint').onclick = () => {
+  if (!P || P.done) return;
+  P.helped = true; pzFail();
+  const u = P.sol[P.step], m = new Chess(P.ch.fen()).move(uciMove(u));
+  P.hintSq = u.slice(0, 2); pzDraw();
+  const L = P.step === 0 ? CL.coachMove(P.g, P.k) : null, th = L && CL.THEMES[L.theme] ? CL.THEMES[L.theme][0] : '';
+  pzSay('<b>Hint:</b> move the ' + ({ p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' })[m.piece] + ' outlined in blue' + (m.captured ? '. It captures something.' : /\+/.test(m.san) ? '. It gives check.' : '.') + (th ? ' <span class="mut">Theme: ' + esc(th) + '.</span>' : ''));
+};
+$('pzShow').onclick = () => {
+  if (!P || P.done) return;
+  P.helped = true; pzFail();
+  const sans = [];
+  while (P.step < P.sol.length) { const m = P.ch.move(uciMove(P.sol[P.step])); if (!m) break; sans.push(m.san); P.last = m; P.step++; }
+  P.marks = P.last ? { [P.last.to]: 'ok' } : null;
+  const first = new Chess(P.g.fens[P.k - 1]).move(uciMove(P.sol[0]));
+  pzFinish('The answer was ' + (first ? first.san : sans[0]) + (sans.length > 1 ? ' (' + sans.join(' ') + ')' : '') + '.');
+};
+$('pzNext').onclick = () => pzNext(true);
+$('pzNote').addEventListener('click', e => {
+  if (e.target.closest('#pzOpen') && P) { const g = gameOf(P.p.d); if (g) { CL.open(CL.fromDoc(P.p.d), P.k); } }
+});
+$('pzList').addEventListener('click', e => {
+  const b = e.target.closest('[data-pz]');
+  if (!b) return;
+  const p = allPuzzles().find(x => x.pid === b.dataset.pz);
+  if (p && pzStart(p)) $('pzBoard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+// start a puzzle the first time the tab is opened, keep the counts fresh
+let pzSeen = false;
+new MutationObserver(() => { if (!$('puzzles').hidden && !pzSeen) { pzSeen = true; pzNext(false); } }).observe($('puzzles'), { attributes: true, attributeFilter: ['hidden'] });
+if (!$('puzzles').hidden) { pzSeen = true; pzNext(false); }
+on('cl:games', () => { if (pzSeen && !P) pzNext(false); else pzSide(); });
+pzSide();
+
 })();
