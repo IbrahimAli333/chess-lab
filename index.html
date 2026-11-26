@@ -175,6 +175,9 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 .ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}.ln.on small{color:var(--ink)}
 /* training features (train.js) */
 #pzBoard .sq{cursor:pointer}
+.tabs a{position:relative}
+@media(max-width:560px){.tabs .pzn{position:absolute;top:7px;right:3px;min-width:9px;width:9px;height:9px;padding:0;margin:0;font-size:0}}
+@media(max-width:440px){.bar{padding:0 12px}.tabs{overflow-x:auto;scrollbar-width:none;gap:2px}.tabs::-webkit-scrollbar{display:none}.tabs a{padding:0 7px;font-size:14px;flex:none}.bar>.wrapc{gap:6px}#newBtn{width:44px;padding:0;font-size:0;flex:none}#newBtn::before{content:"+";font-size:26px;font-weight:600;line-height:1}}
 .pzn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:#A5D86A;color:#1C1B19;font-size:12px;font-weight:800}
 .ok.lt{background:#B5E08C}.ok.dk{background:#7FB04A}.no.lt{background:#F4B3A8}.no.dk{background:#D9776A}
 .pzi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
@@ -206,7 +209,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <div class="bar"><div class="wrapc">
 <h1><span class="bl">Ibrahim Ali's </span>chess lab</h1>
 <nav class="tabs" aria-label="Sections"><a href="#review" data-tab="review" aria-current="page">Review</a><a href="#puzzles" data-tab="puzzles">Puzzles<span class="pzn" id="pzTabN" hidden></span></a><a href="#openings" data-tab="openings">Openings</a><a href="#progress" data-tab="progress">Progress</a></nav>
-<button id="newBtn" type="button" aria-expanded="true" aria-controls="loader">Load<span class="lg"> a game</span></button>
+<button id="newBtn" type="button" aria-expanded="true" aria-controls="loader" aria-label="Load a game">Load<span class="lg"> a game</span></button>
 </div></div>
 <div class="tprog" aria-hidden="true"><div id="tfill"></div></div>
 </header>
@@ -289,6 +292,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 </div></section>
 
 <section class="view" id="openings" aria-label="Opening trainer" hidden><div class="wrapc">
+<div class="panel" id="myOpen" style="margin-bottom:18px"></div>
 <h2 style="font-size:22px">Opening trainer</h2>
 <p class="mut" style="max-width:640px">Play the moves yourself. The trainer answers for your opponent and explains each idea. Learn mode shows the move; Practice mode makes you remember it.</p>
 <div class="grid">
@@ -338,7 +342,7 @@ let G=null,i=0,flip=false,hist=[],db=null,store="none",gen=0,worker=null,V=null,
 const h32=(s,h)=>{for(let k=0;k<s.length;k++){h=Math.imul((h^s.charCodeAt(k))>>>0,0x01000193)>>>0}return h};
 const okey=fen=>{const f=fen.split(' ').slice(0,3).join(' ');return h32(f,0x811c9dc5).toString(36)+h32(f,0x2166136f).toString(36)};
 function markBook(g){if(!BOOK||!g)return;g.book=[];let inb=true,name='';for(let k=1;k<g.fens.length;k++){const kk=okey(g.fens[k]);if(inb&&BOOK.has(kk))g.book[k]=true;else inb=false;if(k<=40&&BN[kk])name=BN[kk];if(g.book[k]&&g.cls[k])g.cls[k]='book'}if(name)g.opening=name}
-fetch('openings.json').then(r=>r.json()).then(j=>{BOOK=new Set(j.b.split(','));BN=j.n||{};if(G){markBook(G);list();panel();draw()}}).catch(()=>{});
+fetch('openings.json').then(r=>r.json()).then(j=>{BOOK=new Set(j.b.split(','));BN=j.n||{};if(G){markBook(G);list();panel();draw()}document.dispatchEvent(new Event('cl:book'))}).catch(()=>{});
 const mlab=k=>Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1];
 function buildV(v){const c=new Chess(G.fens[v.base]);v.fens=[c.fen()];v.san=[];v.vm=[];const ok=[];for(const m of v.uci){const r=c.move({from:m.slice(0,2),to:m.slice(2,4),promotion:m[4]||'q'});if(!r)break;ok.push(m);v.san.push(r.san);v.vm.push(r);v.fens.push(c.fen())}v.uci=ok;v.over=c.game_over()}
 function lineNote(){const v=V,b=v.base;let s='<b>Best line instead of '+esc(mlab(v.k))+'</b><div class="vline">';

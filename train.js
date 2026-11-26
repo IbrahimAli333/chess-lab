@@ -455,4 +455,93 @@ if (!$('puzzles').hidden) { pzSeen = true; pzNext(false); }
 on('cl:games', () => { if (pzSeen && !P) pzNext(false); else pzSide(); });
 pzSide();
 
+// ---------------------------------------------------------------------------
+// 3. Your openings in real games, linked to the trainer
+// ---------------------------------------------------------------------------
+const accOf = loss => Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * (loss || 0) * 100) - 3.1669));
+const resOf = d => d.result === '1/2-1/2' ? 'D' : d.result === '*' ? '?' : (d.result === '1-0') === (d.me === 'w') ? 'W' : 'L';
+const OPEN_PLIES = 24;
+const LF = new Map();
+function lineFens(l) {
+  if (!LF.has(l.id)) { const c = new Chess(), out = [c.fen().split(' ').slice(0, 2).join(' ')]; for (const m of l.mv.split(' ')) { if (!c.move(m)) break; out.push(c.fen().split(' ').slice(0, 2).join(' ')); } LF.set(l.id, out); }
+  return LF.get(l.id);
+}                    // "the opening" for these numbers: your first 12 moves
+function openingFacts(d) {
+  const g = gameOf(d);
+  if (!g) return null;
+  const T = g.san.length;
+  let b = 0; while (b < T && g.book && g.book[b + 1]) b++;
+  const accs = [], slips = [];
+  for (let k = 1; k <= Math.min(T, OPEN_PLIES); k++) {
+    if (!isMine(g, k) || !g.cls[k]) continue;
+    accs.push(accOf(g.loss[k]));
+    if (BADC.includes(g.cls[k]) && k <= 30) slips.push(k);
+  }
+  // the trainer line your game followed longest (at least two moves each). Compared by
+  // position, so a different move order that reaches the same position still counts.
+  let best = null;
+  const pos = f => f.split(' ').slice(0, 2).join(' ');
+  CL.LINES.forEach((l, li) => {
+    if (l.side !== d.me) return;
+    const lf = lineFens(l);
+    let p = 0;
+    for (let j = 1; j < lf.length && j <= T; j++) if (pos(g.fens[j]) === lf[j]) p = j;
+    if (p < 4 || (best && p <= best.p)) return;
+    const mv = l.mv.split(' ');
+    best = { li, l, p, left: p < mv.length && p < T ? { ply: p + 1, played: g.san[p], line: mv[p], mine: isMine(g, p + 1) } : null };
+  });
+  return { d, g, book: b, leftByMe: b < T && isMine(g, b + 1), acc: accs.length ? accs.reduce((a, x) => a + x, 0) / accs.length : null, slips, line: best,
+           fam: (d.me === 'w' ? 'White: ' : 'Black: ') + String(g.opening || d.opening || 'Unknown opening').split(':')[0].trim() };
+}
+function renderMyOpenings() {
+  const box = $('myOpen');
+  if (!box) return;
+  const games = savedGames().slice(0, 60);
+  if (!games.length) { box.innerHTML = '<h2>Your openings in real games</h2><p class="mut" style="margin:0">Review a few games and this shows how your openings go: your results, where you leave known theory, your first slips, and the trainer line to practice.</p>'; return; }
+  const by = {};
+  for (const d of games) {
+    const f = openingFacts(d);
+    if (!f) continue;
+    const o = by[f.fam] = by[f.fam] || { fam: f.fam, n: 0, W: 0, D: 0, L: 0, acc: [], book: [], meLeft: 0, slips: [], lines: {} };
+    o.n++; o[resOf(d)] = (o[resOf(d)] || 0) + 1;
+    if (f.acc != null) o.acc.push(f.acc);
+    o.book.push(f.book); if (f.leftByMe) o.meLeft++;
+    for (const k of f.slips.slice(0, 1)) o.slips.push({ d, k, san: d.san[k - 1], cls: d.cls[k], opp: d.me === 'w' ? d.black : d.white });
+    if (f.line) { const L = o.lines[f.line.li] = o.lines[f.line.li] || { l: f.line.l, li: f.line.li, n: 0, left: [], opp: [], p: 0 }; L.n++; L.p = Math.max(L.p, f.line.p); if (f.line.left) (f.line.left.mine ? L.left : L.opp).push(f.line.left); }
+  }
+  const groups = Object.values(by).sort((a, b) => b.n - a.n);
+  const score = o => (o.W + o.D / 2) / o.n;
+  const weak = groups.filter(o => o.n >= 2).sort((a, b) => score(a) - score(b))[0];
+  const med = a => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  let h = '<h2>Your openings in real games</h2><p class="tip" style="margin:0 0 6px">From your last ' + games.length + ' reviewed game' + (games.length > 1 ? 's' : '') + '. Opening accuracy counts your first 12 moves.</p>';
+  if (weak && score(weak) < 0.5) h += '<p style="margin:0 0 6px"><b>Work on:</b> ' + esc(weak.fam) + ', where you scored ' + Math.round(score(weak) * 100) + '% in ' + weak.n + ' games.</p>';
+  h += groups.slice(0, 8).map(o => {
+    const acc = o.acc.length ? o.acc.reduce((a, x) => a + x, 0) / o.acc.length : null, bm = med(o.book);
+    const theory = bm > 0 ? 'Known theory ends around move ' + Math.ceil((bm + 1) / 2) + (o.n > 1 ? ', and ' + (o.meLeft * 2 > o.n ? 'you usually' : 'your opponent usually') + ' leaves it first.' : (o.meLeft ? ', and you left it first.' : ', and your opponent left it first.')) : 'Your games leave known theory right away.';
+    const lines = Object.values(o.lines).sort((a, b) => b.n - a.n);
+    let tr = '';
+    if (lines.length) {
+      tr = lines.slice(0, 2).map(L => { const lf = L.left[0];
+        return '<div style="margin-top:6px"><button type="button" class="tm" data-line="' + L.li + '">Practice: ' + esc(L.l.name) + '</button>' +
+        (lf ? ' <span class="tip">In your game you played ' + esc(Math.ceil(lf.ply / 2) + (lf.ply % 2 ? '. ' : '... ') + lf.played) + ' where the line plays ' + esc(lf.line) + '.</span>'
+          : L.opp[0] ? ' <span class="tip">Your game follows it for ' + Math.ceil(L.p / 2) + ' moves, then your opponent played ' + esc(Math.ceil(L.opp[0].ply / 2) + (L.opp[0].ply % 2 ? '. ' : '... ') + L.opp[0].played) + '.</span>'
+          : ' <span class="tip">' + (L.n > 1 ? L.n + ' of your games follow' : 'Your game follows') + ' this line.</span>') + '</div>'; }).join('');
+    } else tr = '<div class="tip" style="margin-top:6px">No trainer line for this opening yet.</div>';
+    return '<div class="th"><div class="thh"><b>' + esc(o.fam) + '</b><span>' + o.n + (o.n > 1 ? ' games' : ' game') + ': ' + [o.W && o.W + ' won', o.D && o.D + ' drawn', o.L && o.L + ' lost'].filter(Boolean).join(', ') + '</span></div>' +
+      (acc != null ? '<div class="accbar" style="margin:8px 0"><div style="width:' + Math.round(acc) + '%"></div></div>' : '') +
+      '<div class="tip">' + (acc != null ? 'Opening accuracy ' + Math.round(acc) + '%. ' : '') + esc(theory) + '</div>' +
+      (o.slips.length ? '<div class="thm"><span class="tip" style="align-self:center">First slips:</span>' + o.slips.slice(0, 3).map(s => '<button type="button" class="tm" data-open="' + esc(s.d.id) + '" data-k="' + s.k + '">' + CL.badge(s.cls) + esc(Math.ceil(s.k / 2) + (s.k % 2 ? '. ' : '... ') + s.san + ' vs ' + s.opp) + '</button>').join('') + '</div>' : '') +
+      tr + '</div>';
+  }).join('');
+  box.innerHTML = h;
+}
+$('myOpen').addEventListener('click', e => {
+  const l = e.target.closest('[data-line]'), o = e.target.closest('[data-open]');
+  if (l) { CL.tStart(CL.LINES[+l.dataset.line]); $('tboard').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  if (o) { const d = CL.hist.find(x => x.id === o.dataset.open); if (d) CL.open(CL.fromDoc(d), +o.dataset.k); }
+});
+on('cl:games', renderMyOpenings);
+on('cl:book', () => { GC.clear(); renderMyOpenings(); });
+renderMyOpenings();
+
 })();
