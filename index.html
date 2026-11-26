@@ -10,94 +10,168 @@
 <style>
 /* VOICE: a focused training tool, calm and clear, like a coach's review sheet
    IDEA: the post-game review screen of a chess club app
-   PICTURE: the live board with eval bar and move badges, top of the page
-   COLOUR and TYPE: felt-green header band, classic green board, rating colours as accents; Manrope
-   LAYOUT: board left, review panel right; stacks on phones; history band below */
-:root{color-scheme:light dark;--bg:light-dark(#F3F2EE,#161512);--panel:light-dark(#FFFFFF,#262421);--ink:light-dark(#1C1B19,#EDEBE7);--muted:light-dark(#5F5D58,#A9A59E);--line:light-dark(#E2E0DA,#3A3733);--soft:light-dark(#EEEDE8,#2F2C29);--felt:#22301F;--go:#5E9A34;--sel:light-dark(#E4EBD9,#36402E)}
+   PICTURE: the board with its eval bar on the left, the lesson for the current move right beside it
+   COLOUR and TYPE: felt-green top bar, classic green board, rating colours as accents; Manrope
+   LAYOUT: sticky top bar with three tabs (Review, Openings, Progress). On a laptop the review is one
+   screen: board left, lesson, eval graph and move list right. On a phone everything stacks. */
+:root{color-scheme:light dark;--bg:light-dark(#F3F2EE,#161512);--panel:light-dark(#FFFFFF,#262421);--ink:light-dark(#1C1B19,#EDEBE7);--muted:light-dark(#5F5D58,#A9A59E);--line:light-dark(#E2E0DA,#3A3733);--soft:light-dark(#EEEDE8,#2F2C29);--felt:#22301F;--go:#3F7A1F;--sel:light-dark(#DDE8CF,#3A4830);--focus:light-dark(#1957B8,#9CC4FF);--hdr:56px;--bs:min(560px,calc(100vh - 236px))}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Manrope,system-ui,sans-serif;overflow-x:clip}
-.band{padding:clamp(20px,3.5vw,44px) max(4vw,16px)}
+html{scroll-padding-top:calc(var(--hdr) + 12px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Manrope,system-ui,sans-serif;overflow-x:clip}
+[hidden]{display:none!important}
 .wrapc{max-width:1180px;margin:0 auto}
-header.band{background:var(--felt);color:#EEF1E8;padding-bottom:22px}
-h1{font-size:clamp(26px,4vw,38px);line-height:1.05;margin:0 0 6px;font-weight:800;text-wrap:balance}
-h2{font-size:20px;margin:0 0 12px;font-weight:800}
-.sub{color:#C2CDB8;margin:0;font-size:15px}
-button,.btn{font:600 15px Manrope,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
-button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #81B64C;outline-offset:2px}
+h1{margin:0;font-size:18px;font-weight:800;white-space:nowrap}
+h2{font-size:18px;margin:0 0 10px;font-weight:800}
+h3{font-size:15px;margin:0 0 8px;font-weight:800}
+p{margin:0 0 10px}
+.mut{color:var(--muted)}.sm{font-size:14px}
+button,.btn{font:600 15px Manrope,system-ui,sans-serif;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.top :focus-visible{outline-color:#fff}
 .go{background:var(--go);border-color:var(--go);color:#fff}
 .ghost{background:transparent}
-header button{border-color:#4A5C44;background:#2E3F2A;color:#EEF1E8}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
-textarea{width:100%;min-height:130px;font:14px/1.5 ui-monospace,Menlo,monospace;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
-input[type=text]{font:16px Manrope,sans-serif;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
-.grid{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:28px;align-items:start}
-@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
-.pbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;font-weight:600}
-.pbar small{color:var(--muted);font-weight:400}
+textarea{width:100%;min-height:110px;font:14px/1.5 ui-monospace,Menlo,monospace;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
+input[type=text]{font:16px Manrope,system-ui,sans-serif;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+/* top bar and tabs */
+.top{position:sticky;top:0;z-index:20;background:var(--felt);color:#EEF1E8}
+.bar{display:flex;align-items:center;gap:10px;min-height:var(--hdr);padding:0 max(4vw,16px)}
+.bar>.wrapc{display:flex;align-items:center;gap:10px;flex:1}
+.tabs{display:flex;gap:4px;margin-right:auto}
+.tabs a{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:10px;color:#DCE8CF;font-weight:600;text-decoration:none}
+.tabs a:hover{background:#2E3F2A}
+.tabs a[aria-current=page]{background:#3D5437;color:#fff}
+.top button{border-color:#5B7353;background:#2E3F2A;color:#EEF1E8;white-space:nowrap}
+.tprog{height:3px}.tprog>div{height:100%;width:0;background:#A5D86A;transition:width .3s}
+@media(max-width:700px){h1 .bl{display:none}}
+@media(max-width:520px){.lg{display:none}h1{position:absolute;left:-9999px}.tabs a{padding:0 10px}.bar{gap:6px}.top button{padding:0 12px}}
+.view{padding:16px max(4vw,16px) 28px}
+/* load a game */
+.loader{margin-bottom:16px}
+.lhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}.lhead h2{margin:0}
+.lgrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px}
+.urow{display:flex;gap:8px;align-items:center;margin-bottom:8px}.urow label{font-size:14px;color:var(--muted);white-space:nowrap;flex:none}.urow button{flex:none}.urow input{flex:1}
+#ccList{max-height:280px;overflow-y:auto}
+.brow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:800px){.lgrid{grid-template-columns:minmax(0,1fr);gap:18px}}
+/* review workspace */
+.rgrid{display:flex;flex-direction:column;gap:12px}
+.scol{display:contents}
+.rhead{order:0}.bcol{order:1}.prog-w{order:2}.notebox{order:3}.graph{order:4}.sidetabs{order:5}
+.rhead{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap}.rhead h2{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chips{display:flex;gap:8px}
+.chip{background:var(--soft);border-radius:999px;padding:4px 12px;font-size:14px;white-space:nowrap}.chip b{font-weight:800;font-variant-numeric:tabular-nums}
+.pbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 2px;font-weight:600;min-height:32px}
+.pbar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbar small{color:var(--muted);font-weight:400;white-space:nowrap}
 .boardrow{display:flex;gap:8px}
 .ev{width:16px;border-radius:5px;overflow:hidden;display:flex;flex-direction:column;flex:none;background:#403D39}
 .ev>div{transition:height .4s ease}
-.bd{flex:1;display:grid;grid-template-columns:repeat(8,1fr);aspect-ratio:1;border-radius:8px;overflow:hidden}
+.bwrap{position:relative;flex:1}
+.bd{display:grid;grid-template-columns:repeat(8,1fr);aspect-ratio:1;border-radius:8px;overflow:hidden}
+.arr{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .sq{position:relative}
 .lt{background:#EBECD0}.dk{background:#739552}.lt.hl{background:#F5F682}.dk.hl{background:#B9CA43}
 .pc{position:absolute;inset:4%;background-size:cover}
 .co{position:absolute;font-size:12px;font-weight:800;line-height:1}
-.bdg{position:absolute;top:-6%;right:-6%;width:44%;height:44%;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:clamp(10px,2.2vw,14px);z-index:2;border:2px solid #fff}
-.dot{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex:none}
-.nav{display:flex;gap:8px;justify-content:center;margin:12px 0}
-.nav button{min-width:56px;font-size:18px}
-.note{background:var(--soft);border-radius:12px;padding:12px 14px;min-height:70px;font-size:15px}
+.bdg{position:absolute;top:-6%;right:-6%;width:44%;height:44%;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#1A1917;font-weight:800;font-size:clamp(10px,2.2vw,14px);z-index:2;border:2px solid #fff}
+.dot{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#1A1917;font-size:11px;font-weight:800;flex:none}
+.nav{display:flex;gap:6px;justify-content:center;margin:8px 0 0}
+.nav button{flex:1;max-width:72px;padding:0;font-size:18px}
+.keys{margin:8px 0 0;font-size:13px;color:var(--muted);text-align:center;display:none}
+kbd{font:600 12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 5px;background:var(--panel);color:var(--ink)}
+.prog-w{font-size:14px;color:var(--muted)}
+.prog-w .pt{display:flex;justify-content:space-between;gap:12px;margin-bottom:6px}.prog-w.idle .prog{display:none}.prog-w.idle .pt{margin:0}
+.prog{height:8px;background:var(--soft);border-radius:4px;overflow:hidden}.prog>div{height:100%;width:0;background:#5E9A34;transition:width .3s}
+.notebox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.mtools{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.mtools button{min-height:40px;padding:0 12px;font-size:14px}
+.mtools span{margin:0 auto;font-size:13px;color:var(--muted);text-align:center}
+.note{font-size:15px;min-height:64px}
+.lab{display:flex;align-items:center;gap:8px}
+.why{margin:0;font-weight:600}
+.evl{color:var(--muted);font-size:14px}
+.nh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 12px}
+.lnb{min-height:40px;padding:0 12px;font-size:14px;margin-top:6px}
+.lesson{margin:10px 0 0;display:grid;gap:10px}
+.lesson dt{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.lesson dd{margin:2px 0 0}
+.sanl{font-weight:600;font-variant-numeric:tabular-nums}
+.lesson small{color:var(--muted);font-size:14px}
+.arrkey{display:inline-block;width:18px;height:6px;border-radius:3px;background:#1F6FD0;vertical-align:middle;margin-right:6px}
+.graph{position:relative;height:72px;border-radius:10px;background:var(--soft);overflow:hidden;cursor:pointer;flex:none}
+.graph svg{position:absolute;inset:0;width:100%;height:100%}
+.gd{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;border:1.5px solid var(--panel);pointer-events:none}
+.gcur{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--ink);pointer-events:none}
+.gcap{position:absolute;left:8px;top:4px;font-size:11px;color:var(--muted);pointer-events:none}
+.stabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);margin-bottom:10px}
+.stabs button{flex:1;border:0;border-radius:0;font-size:14px;padding:0 8px;background:transparent}
+.stabs button[aria-selected=true]{background:var(--sel)}
+.spanel>.panel+.panel{margin-top:12px}
 .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .card{background:var(--soft);border-radius:12px;padding:12px 14px}
-.card .k{font-size:13px;color:var(--muted)}.card .v{font-size:clamp(26px,5vw,34px);font-weight:800;line-height:1.1}
+.card .k{font-size:13px;color:var(--muted)}.card .v{font-size:clamp(24px,5vw,32px);font-weight:800;line-height:1.1}
 .rows .r{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
 .rows .r span:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
-.lab{display:flex;align-items:center;gap:8px}
-.ml{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1fr);gap:2px 6px;max-height:340px;overflow-y:auto;padding-right:4px}
-.ml .n{color:var(--muted);font-size:13px;padding-top:12px}
-.mb{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 8px;border:0;background:transparent;font-weight:600;text-align:left;justify-content:flex-start;border-radius:8px}
+.ml{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1fr);gap:2px 6px;max-height:50vh;overflow-y:auto;padding-right:4px}
+.ml .n{color:var(--muted);font-size:13px;padding-top:13px}
+.mb{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 8px;border:0;background:transparent;font-weight:600;text-align:left;justify-content:flex-start;border-radius:8px}
 .mb.on{background:var(--sel)}
 .km{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;margin:0 0 6px;text-align:left;font-weight:600}
 .km small{color:var(--muted);font-weight:400;margin-left:auto}
-.prog{height:6px;background:var(--soft);border-radius:3px;overflow:hidden}.prog>div{height:100%;width:0;background:#81B64C;transition:width .3s}
 .coach{white-space:pre-wrap;font-size:15px;line-height:1.6}
 .err{color:light-dark(#B3261E,#FF8A80);font-size:14px;margin:8px 0 0}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.seg button{border:0;border-radius:0;min-height:36px;padding:0 12px;font-size:14px}
+.seg button{border:0;border-radius:0;padding:0 12px;font-size:14px}
 .seg button.on{background:var(--sel)}
+.th{padding:12px 0;border-bottom:1px solid var(--line)}.th:first-child{padding-top:0}.th:last-child{border-bottom:0;padding-bottom:0}
+.thh{display:flex;justify-content:space-between;gap:12px;align-items:baseline}.thh span{color:var(--muted);font-size:14px;text-align:right}
+.thm{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.tm{display:inline-flex;align-items:center;gap:8px;padding:0 12px;font-size:14px;text-align:left}
+.tip{font-size:14px;color:var(--muted)}
+@media(min-width:960px){
+.rgrid{display:grid;grid-template-columns:calc(var(--bs) + 24px) minmax(0,1fr);gap:24px;align-items:start}
+.bcol{position:sticky;top:calc(var(--hdr) + 12px);order:0}
+.scol{display:flex;flex-direction:column;gap:10px}
+.keys{display:block}
+}
+/* laptop: the whole review fits one screen, the lists scroll inside the right column */
+@media(min-width:960px) and (min-height:600px){
+.scol{height:calc(100vh - var(--hdr) - 30px);min-height:0}
+.notebox{flex:0 1 auto;min-height:120px;max-height:56%;overflow-y:auto}
+.sidetabs{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+.spanel{flex:1 1 0;min-height:0;overflow-y:auto}
+.ml{max-height:none;overflow:visible}
+}
+@media(hover:none){.keys{display:none}}
+/* openings and progress */
+.grid{display:grid;grid-template-columns:min(520px,calc(100vh - 330px)) minmax(0,1fr);gap:24px;align-items:start}
+@media(max-width:959px){.grid{grid-template-columns:minmax(0,1fr)}}
+.two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:900px){.two{grid-template-columns:minmax(0,1fr)}}
+.tnav{display:flex;gap:8px;justify-content:center;margin:10px 0;flex-wrap:wrap}
+.tnote{background:var(--soft);border-radius:12px;padding:12px 14px;min-height:70px;font-size:15px}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
 @media(max-width:700px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .hist .h{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .res{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
 .h .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.h .m{font-size:13px;color:var(--muted)}
 .hb{display:flex;gap:6px}
-.accbar{height:8px;background:var(--soft);border-radius:4px;overflow:hidden;margin-top:6px}.accbar>div{height:100%;background:#81B64C}
+.accbar{height:8px;background:var(--soft);border-radius:4px;overflow:hidden;margin-top:6px}.accbar>div{height:100%;background:#5E9A34}
 .op{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;font-size:14px;padding:6px 0;border-bottom:1px solid var(--line)}
-footer{color:var(--muted);font-size:13px}
+footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 #tboard .sq{cursor:pointer}
 .sel.lt{background:#F7EC74}.sel.dk{background:#BBCB2B}
 .tgt::after{content:"";position:absolute;inset:36%;border-radius:50%;background:rgba(20,30,10,.22)}
-.hint.lt{box-shadow:inset 0 0 0 4px #4F9FE0}.hint.dk{box-shadow:inset 0 0 0 4px #4F9FE0}
+.hint.lt{box-shadow:inset 0 0 0 4px #1F6FD0}.hint.dk{box-shadow:inset 0 0 0 4px #1F6FD0}
 .grp{font-size:13px;color:var(--muted);font-weight:600;margin:14px 0 6px}
 .ln{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;margin:0 0 6px;text-align:left}
-.ln.on{border-color:#81B64C;background:var(--sel)}
-.why{margin:0;font-weight:600}
-.evl{color:var(--muted);font-size:14px}
-.lesson{margin:10px 0 0;display:grid;gap:10px}
-.lesson dt{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
-.lesson dd{margin:2px 0 0}
-.sanl{font-weight:600;font-variant-numeric:tabular-nums}
-.lesson small{color:var(--muted);font-size:14px}
-.th{padding:12px 0;border-bottom:1px solid var(--line)}.th:first-child{padding-top:0}.th:last-child{border-bottom:0;padding-bottom:0}
-.thh{display:flex;justify-content:space-between;gap:12px;align-items:baseline}.thh span{color:var(--muted);font-size:14px;text-align:right}
-.thm{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-.tm{display:inline-flex;align-items:center;gap:8px;padding:0 12px;font-size:14px}
-.tip{font-size:14px;color:var(--muted)}
-.vline{line-height:2.3;margin:6px 0}.vm{min-height:32px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
+.ln.on{border-color:#5E9A34;background:var(--sel)}
+.vline{line-height:2.6;margin:6px 0}.vm{min-height:36px;min-width:36px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
 .ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}
-html{scroll-padding-top:12px}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 .pc-wP{background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==');}
 .pc-wB{background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIGZpbGw9IiNmZmYiIHN0cm9rZS1saW5lY2FwPSJidXR0Ij48cGF0aCBkPSJNOSAzNmMzLjM5LS45NyAxMC4xMS40MyAxMy41LTIgMy4zOSAyLjQzIDEwLjExIDEuMDMgMTMuNSAyIDAgMCAxLjY1LjU0IDMgMi0uNjguOTctMS42NS45OS0zIC41LTMuMzktLjk3LTEwLjExLjQ2LTEzLjUtMS0zLjM5IDEuNDYtMTAuMTEuMDMtMTMuNSAxLTEuMzU0LjQ5LTIuMzIzLjQ3LTMtLjUgMS4zNTQtMS45NCAzLTIgMy0yeiIvPjxwYXRoIGQ9Ik0xNSAzMmMyLjUgMi41IDEyLjUgMi41IDE1IDAgLjUtMS41IDAtMiAwLTIgMC0yLjUtMi41LTQtMi41LTQgNS41LTEuNSA2LTExLjUtNS0xNS41LTExIDQtMTAuNSAxNC01IDE1LjUgMCAwLTIuNSAxLjUtMi41IDQgMCAwLS41LjUgMCAyeiIvPjxwYXRoIGQ9Ik0yNSA4YTIuNSAyLjUgMCAxIDEtNSAwIDIuNSAyLjUgMCAxIDEgNSAweiIvPjwvZz48cGF0aCBkPSJNMTcuNSAyNmgxME0xNSAzMGgxNW0tNy41LTE0LjV2NU0yMCAxOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PC9nPjwvc3ZnPg==');}
 .pc-wN{background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMiAxMGMxMC41IDEgMTYuNSA4IDE2IDI5SDE1YzAtOSAxMC02LjUgOC0yMSIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0yNCAxOGMuMzggMi45MS01LjU1IDcuMzctOCA5LTMgMi0yLjgyIDQuMzQtNSA0LTEuMDQyLS45NCAxLjQxLTMuMDQgMC0zLTEgMCAuMTkgMS4yMy0xIDItMSAwLTQuMDAzIDEtNC00IDAtMiA2LTEyIDYtMTJzMS44OS0xLjkgMi0zLjVjLS43My0uOTk0LS41LTItLjUtMyAxLTEgMyAyLjUgMyAyLjVoMnMuNzgtMS45OTIgMi41LTNjMSAwIDEgMyAxIDMiIGZpbGw9IiNmZmYiLz48cGF0aCBkPSJNOS41IDI1LjVhLjUuNSAwIDEgMS0xIDAgLjUuNSAwIDEgMSAxIDB6bTUuNDMzLTkuNzVhLjUgMS41IDMwIDEgMS0uODY2LS41LjUgMS41IDMwIDEgMSAuODY2LjV6IiBmaWxsPSIjMDAwIi8+PC9nPjwvc3ZnPg==');}
@@ -113,65 +187,83 @@ html{scroll-padding-top:12px}
 </style>
 </head>
 <body>
-<header class="band"><div class="wrapc">
-<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
-<div><h1>Ibrahim Ali's chess lab</h1><p class="sub">Review your games, drill your openings, and track your progress.</p>
-<nav style="display:flex;gap:16px;margin-top:10px;font-weight:600;flex-wrap:wrap"><a href="#review" style="color:#DCE8CF">Review</a><a href="#openings" style="color:#DCE8CF">Openings</a><a href="#progress" style="color:#DCE8CF">Progress</a></nav></div>
-<button id="newBtn" type="button">+ New game</button>
-</div>
-<div id="paste" class="panel" style="margin-top:18px;color:var(--ink)">
-<label for="pgn" style="font-weight:600;display:block;margin-bottom:6px">Paste your game (PGN)</label>
-<p style="margin:0 0 10px;font-size:14px;color:var(--muted)">On chess.com: open the finished game, tap Share, open the PGN tab, copy, and paste here.</p>
-<textarea id="pgn" spellcheck="false" placeholder="[Event &quot;Live Chess&quot;] 1. e4 e6 2. d4 d5 ..."></textarea>
-<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
-<button id="goBtn" class="go" type="button">Review game</button>
-<button id="exBtn" class="ghost" type="button">Use my Nov 25 win</button>
-<label for="uname" style="font-size:14px;color:var(--muted);margin-left:auto">Your username</label>
-<input id="uname" type="text" style="width:160px" value="ibrahimaliKH" autocomplete="off">
-</div>
-<p id="perr" class="err" role="alert"></p>
-<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button id="ccBtn" type="button">Load my recent chess.com games</button><span id="ccMsg" style="font-size:14px;color:var(--muted)"></span></div><div id="ccList" class="hist" style="margin-top:6px;max-height:420px;overflow-y:auto"></div></div>
-</div>
-</div></header>
+<header class="top">
+<div class="bar"><div class="wrapc">
+<h1><span class="bl">Ibrahim Ali's </span>chess lab</h1>
+<nav class="tabs" aria-label="Sections"><a href="#review" data-tab="review" aria-current="page">Review</a><a href="#openings" data-tab="openings">Openings</a><a href="#progress" data-tab="progress">Progress</a></nav>
+<button id="newBtn" type="button" aria-expanded="true" aria-controls="loader">Load<span class="lg"> a game</span></button>
+</div></div>
+<div class="tprog" aria-hidden="true"><div id="tfill"></div></div>
+</header>
 
-<main class="band"><div class="wrapc grid" id="review">
-<section aria-label="Board">
+<main>
+<section class="view" id="review" aria-label="Game review"><div class="wrapc">
+<div id="loader" class="panel loader">
+<div class="lhead"><h2>Load a game</h2><button id="loadHide" type="button" class="ghost">Close</button></div>
+<div class="lgrid">
+<div>
+<h3>Your recent chess.com games</h3>
+<div class="urow"><label for="uname">Username</label><input id="uname" type="text" value="ibrahimaliKH" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="ccBtn" type="button">Refresh</button></div>
+<p id="ccMsg" class="mut sm" aria-live="polite"></p>
+<div id="ccList" class="hist"></div>
+</div>
+<div>
+<h3><label for="pgn">Or paste a game (PGN)</label></h3>
+<p class="mut sm">On chess.com: open the finished game, tap Share, open the PGN tab, copy, and paste here.</p>
+<textarea id="pgn" spellcheck="false" placeholder="[Event &quot;Live Chess&quot;] 1. e4 e6 2. d4 d5 ..."></textarea>
+<div class="brow"><button id="goBtn" class="go" type="button">Review game</button><button id="exBtn" class="ghost" type="button">Try the example game</button></div>
+<p id="perr" class="err" role="alert"></p>
+</div>
+</div>
+</div>
+
+<div class="rgrid">
+<section class="bcol" aria-label="Board">
 <div class="pbar"><span id="topName">Opponent</span><small id="evt">0.0</small></div>
-<div class="boardrow"><div class="ev" aria-hidden="true"><div id="evTop" style="height:50%"></div><div id="evBot" style="height:50%"></div></div><div class="bd" id="board" role="img" aria-label="Chess board"></div></div>
+<div class="boardrow"><div class="ev" aria-hidden="true"><div id="evTop" style="height:50%"></div><div id="evBot" style="height:50%"></div></div><div class="bwrap"><div class="bd" id="board" role="img" aria-label="Chess board"></div><svg class="arr" id="arrow" viewBox="0 0 8 8" aria-hidden="true"></svg></div></div>
 <div class="pbar"><span id="botName">You</span><small id="mvLab">Start</small></div>
 <div class="nav">
-<button id="bFirst" type="button" aria-label="First move">&#x23EE;</button>
-<button id="bPrev" type="button" aria-label="Previous move">&#x2039;</button>
-<button id="bNext" type="button" aria-label="Next move">&#x203A;</button>
-<button id="bLast" type="button" aria-label="Last move">&#x23ED;</button>
-<button id="bFlip" type="button" aria-label="Flip board">&#x21C5;</button>
+<button id="bFirst" type="button" aria-label="First move" title="First move (Home)">&#x23EE;</button>
+<button id="bPrev" type="button" aria-label="Previous move" title="Previous move (Left arrow)">&#x2039;</button>
+<button id="bNext" type="button" aria-label="Next move" title="Next move (Right arrow)">&#x203A;</button>
+<button id="bLast" type="button" aria-label="Last move" title="Last move (End)">&#x23ED;</button>
+<button id="bFlip" type="button" aria-label="Flip board" title="Flip board (F)">&#x21C5;</button>
 </div>
+<p class="keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> move &nbsp; <kbd>N</kbd> <kbd>P</kbd> next or previous mistake &nbsp; <kbd>B</kbd> best line &nbsp; <kbd>F</kbd> flip</p>
+</section>
+<section class="scol" aria-label="Review">
+<div class="rhead"><h2 id="gTitle">Game review</h2><div class="chips"><span class="chip">You <b id="accMe">-</b></span><span class="chip"><span id="accOppLab">Opponent</span> <b id="accOpp">-</b></span></div></div>
+<div class="prog-w idle" id="progWrap"><div class="pt"><span id="ptx" aria-live="polite">Waiting for a game</span><span id="ppc"></span></div><div class="prog"><div id="pfill"></div></div></div>
+<div class="notebox">
+<div class="mtools"><button id="bPrevM" type="button" title="Previous mistake (P)">&#x2039; Mistake</button><span id="mCount"></span><button id="bNextM" type="button" title="Next mistake (N)">Mistake &#x203A;</button></div>
 <div class="note" id="note" aria-live="polite"></div>
-</section>
-<section aria-label="Review">
-<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-<h2 id="gTitle" style="margin:0">Game review</h2>
-<div class="seg" role="group" aria-label="You played as"><button id="asW" type="button">I was White</button><button id="asB" type="button">I was Black</button></div>
 </div>
-<div id="progWrap" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:6px"><span id="ptx">Waiting for a game</span><span id="ppc"></span></div><div class="prog"><div id="pfill"></div></div></div>
-<div class="cards" style="margin-bottom:14px"><div class="card"><div class="k">Your accuracy</div><div class="v" id="accMe">-</div></div><div class="card"><div class="k" id="accOppLab">Opponent accuracy</div><div class="v" id="accOpp">-</div></div></div>
-<div class="panel" style="margin-bottom:14px"><h2>Key moments for you</h2><div id="keys"><p style="margin:0;color:var(--muted)">Appear once the engine has checked your moves.</p></div></div>
-<div class="panel" style="margin-bottom:14px"><h2>Your mistakes by theme</h2><div id="themes"><p style="margin:0;color:var(--muted)">Appears when the review is complete.</p></div></div>
-<div class="panel" style="margin-bottom:14px" id="coachBox"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h2 style="margin:0">Coach's notes</h2><button id="coachBtn" type="button" class="go">Copy game for Claude</button></div><p id="coachHint" style="margin:0 0 8px;font-size:14px;color:var(--muted)">Copies this game with everything Stockfish found. Paste it into a chat with Claude for a full coaching review: why your mistakes happened and what to practice.</p><div class="coach" id="coach"></div></div>
-<div class="panel" style="margin-bottom:14px"><h2>Move ratings</h2><div class="rows" id="counts"></div></div>
-<div class="panel"><h2>Moves</h2><div class="ml" id="ml"></div></div>
+<div class="graph" id="graph" role="img" aria-label="Eval graph of the whole game. Click it to jump to a move."></div>
+<div class="sidetabs">
+<div class="stabs" role="tablist" aria-label="Review details"><button type="button" role="tab" id="st-moves" aria-controls="sp-moves" aria-selected="true">Moves</button><button type="button" role="tab" id="st-mist" aria-controls="sp-mist" aria-selected="false">Mistakes</button><button type="button" role="tab" id="st-sum" aria-controls="sp-sum" aria-selected="false">Summary</button></div>
+<div class="spanel" id="sp-moves" role="tabpanel" aria-labelledby="st-moves"><div class="ml" id="ml"></div></div>
+<div class="spanel" id="sp-mist" role="tabpanel" aria-labelledby="st-mist" hidden>
+<div class="panel"><h2>Your mistakes by theme</h2><div id="themes"><p class="mut" style="margin:0">Appears when the review is complete.</p></div></div>
+<div class="panel"><h2>Key moments for you</h2><div id="keys"><p class="mut" style="margin:0">Appear once the engine has checked your moves.</p></div></div>
+</div>
+<div class="spanel" id="sp-sum" role="tabpanel" aria-labelledby="st-sum" hidden>
+<div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Move ratings</h2><div class="seg" role="group" aria-label="You played as"><button id="asW" type="button">I was White</button><button id="asB" type="button">I was Black</button></div></div><div class="rows" id="counts"></div></div>
+<div class="panel" id="coachBox"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h2 style="margin:0">Coach's notes</h2><button id="coachBtn" type="button" class="go">Copy game for Claude</button></div><p id="coachHint" class="mut sm">Copies this game with everything the review found: each mistake, the line that punishes it, the better move and the habit. Paste it into a chat with Claude for a full coaching review.</p><div class="coach" id="coach"></div></div>
+</div>
+</div>
 </section>
-</div></main>
+</div>
+</div></section>
 
-<section class="band" id="openings" style="border-top:1px solid var(--line)"><div class="wrapc">
-<h2 style="font-size:26px">Opening trainer</h2>
-<p style="margin:-6px 0 18px;color:var(--muted);max-width:640px">Play the moves yourself. The trainer answers for your opponent and explains each idea. Learn mode shows the move; Practice mode makes you remember it.</p>
+<section class="view" id="openings" aria-label="Opening trainer" hidden><div class="wrapc">
+<h2 style="font-size:22px">Opening trainer</h2>
+<p class="mut" style="max-width:640px">Play the moves yourself. The trainer answers for your opponent and explains each idea. Learn mode shows the move; Practice mode makes you remember it.</p>
 <div class="grid">
 <section aria-label="Training board">
 <div class="pbar"><span id="tName">Pick a line</span><small id="tStep"></small></div>
-<div class="bd" id="tboard" role="grid" aria-label="Training board" style="width:100%"></div>
-<div class="nav"><button id="tRestart" type="button">Restart</button><button id="tHint" type="button">Hint</button><button id="tNextLine" type="button">Next line</button></div>
-<div class="note" id="tNote" aria-live="polite"></div>
+<div class="bd" id="tboard" role="grid" aria-label="Training board"></div>
+<div class="tnav"><button id="tRestart" type="button">Restart</button><button id="tHint" type="button">Hint</button><button id="tNextLine" type="button">Next line</button></div>
+<div class="tnote" id="tNote" aria-live="polite"></div>
 </section>
 <section aria-label="Lines">
 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span style="font-weight:600">Mode</span><div class="seg" role="group" aria-label="Training mode"><button id="mLearn" type="button" class="on">Learn</button><button id="mPractice" type="button">Practice</button></div></div>
@@ -180,18 +272,20 @@ html{scroll-padding-top:12px}
 </div>
 </div></section>
 
-<section class="band" id="progress" style="background:var(--soft)"><div class="wrapc">
-<h2 style="font-size:26px">Your progress</h2>
-<p id="saveNote" style="margin:-6px 0 10px;color:var(--muted);font-size:14px"></p>
-<div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px"><button id="bkDown" type="button">Download backup</button><label class="btn" for="bkFile" style="display:inline-flex;align-items:center">Restore backup</label><input id="bkFile" type="file" accept=".json,application/json" style="position:absolute;opacity:0;width:1px;height:1px"></div>
+<section class="view" id="progress" aria-label="Your progress" hidden><div class="wrapc">
+<h2 style="font-size:22px">Your progress</h2>
 <div class="stats" id="stats"></div>
-<div class="panel" style="margin-bottom:18px"><h2>What to work on</h2><div id="work"><p style="margin:0;color:var(--muted)">After a few reviewed games this shows which kinds of mistakes cost you the most.</p></div></div>
-<div class="grid" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)">
-<div class="panel"><h2>Saved games</h2><div class="hist" id="hist"><p style="margin:0;color:var(--muted)">Games you review are saved here automatically.</p></div></div>
-<div class="panel"><h2>Your openings</h2><div id="opens"><p style="margin:0;color:var(--muted)">Your results by opening show up after a few games.</p></div></div>
+<div class="panel" style="margin-bottom:18px"><h2>What to work on</h2><div id="work"><p class="mut" style="margin:0">After a few reviewed games this shows which kinds of mistakes cost you the most.</p></div></div>
+<div class="two">
+<div class="panel"><h2>Saved games</h2><div class="hist" id="hist"><p class="mut" style="margin:0">Games you review are saved here automatically.</p></div></div>
+<div>
+<div class="panel" style="margin-bottom:18px"><h2>Your openings</h2><div id="opens"><p class="mut" style="margin:0">Your results by opening show up after a few games.</p></div></div>
+<div class="panel"><h2>Backup</h2><p id="saveNote" class="mut sm"></p><div class="brow" style="margin-top:0"><button id="bkDown" type="button">Download backup</button><label class="btn" for="bkFile" style="display:inline-flex;align-items:center">Restore backup</label><input id="bkFile" type="file" accept=".json,application/json" style="position:absolute;opacity:0;width:1px;height:1px"></div></div>
 </div>
-<footer style="margin-top:24px">Engine: Stockfish 19 lite, built for the web by Stockfish.js (GPLv3, source at github.com/nmrugg/stockfish.js and github.com/official-stockfish/Stockfish). It runs on several threads when your browser allows it, with a single-threaded build and Stockfish 10 as fallbacks. Everything runs in your browser. Engine in use: <span id="engName">starts with your first review</span>. Move logic: chess.js (BSD 2-Clause). Pieces by Colin M.L. Burnett (CC BY-SA 3.0). Opening names: lichess-org/chess-openings (CC0). Ratings follow chess.com's style but are not identical to it.</footer>
+</div>
 </div></section>
+</main>
+<footer><div class="wrapc">Engine: Stockfish 19 lite, built for the web by Stockfish.js (GPLv3, source at github.com/nmrugg/stockfish.js and github.com/official-stockfish/Stockfish). It runs on several threads when your browser allows it, with a single-threaded build and Stockfish 10 as fallbacks. Everything runs in your browser. Engine in use: <span id="engName">starts with your first review</span>. Move logic: chess.js (BSD 2-Clause). Pieces by Colin M.L. Burnett (CC BY-SA 3.0). Opening names: lichess-org/chess-openings (CC0). Ratings follow chess.com's style but are not identical to it.</div></footer>
 
 <script src="chess.js"></script>
 <script>
@@ -203,7 +297,7 @@ const C={brilliant:["Brilliant","#26C2A3","!!"],great:["Great","#749BBF","!"],be
 const ORDER=["brilliant","great","best","excellent","good","book","inaccuracy","mistake","miss","blunder"];
 const VAL={p:1,n:3,b:3,r:5,q:9,k:0};
 const wpW=cp=>1/(1+Math.exp(-0.00368208*cp));
-const badge=(c,big)=>'<span class="'+(big?'bdg':'dot')+'" style="background:'+C[c][1]+'">'+C[c][2]+'</span>';
+const badge=(c,big)=>'<span class="'+(big?'bdg':'dot')+'" style="background:'+C[c][1]+'" title="'+C[c][0]+'">'+C[c][2]+'</span>';
 const fmt=cp=>{if(Math.abs(cp)>=9000){return(cp>0?'+':'-')+'M'+Math.max(10000-Math.abs(cp),0)}const v=cp/100;return(v>0?'+':'')+v.toFixed(1)};
 let G=null,i=0,flip=false,hist=[],db=null,store="none",gen=0,worker=null,V=null,lineW=null,BOOK=null,BN={};
 const h32=(s,h)=>{for(let k=0;k<s.length;k++){h=Math.imul((h^s.charCodeAt(k))>>>0,0x01000193)>>>0}return h};
@@ -252,39 +346,64 @@ let s=g.white+g.black+(H.Date||'')+(H.UTCTime||H.EndTime||H.StartTime||'')+g.san
 g.ev=[];g.w2=[];g.best=[];g.cls=[];g.loss=[];g.pv=[];g.book=[];g.coach='';g.done=false}
 
 // The lesson for one mistake as HTML: what was wrong, what the other side can do now, the better move, the habit.
-function lessonHtml(L){const k=L.k,me=v=>fmt(G.me==='w'?v:-v),mw=k%2===1,w=v=>mw?v:-v;
-let h='<div class="evl">Engine eval for you: '+me(w(L.eB))+' before, '+me(w(L.eA))+' after</div><dl class="lesson">';
+const LINEBTN='<button type="button" id="lineBtn" class="lnb">Show the best line, 10 moves deep</button>';
+function lessonHtml(L){const k=L.k;let h='<dl class="lesson">';
 h+='<div><dt>What went wrong</dt><dd class="why">'+esc(L.what)+'</dd>'+(L.cls==='miss'?'<dd><small>The move before was a mistake, and this one let the chance slip.</small></dd>':'')+'</div>';
 if(L.reply.length){const f=L.found==='yes'?(L.mine?'Your opponent found it.':'You found it.'):L.found?(L.mine?'Your opponent missed it and played ':'You missed it and played ')+L.found+'.':'';
-h+='<div><dt>'+(L.mine?'What your opponent can do now':'What you can do now')+'</dt><dd><span class="sanl">'+esc(numLine(k+1,L.reply))+'</span>'+(L.replyWhy?'<br>'+esc(L.reply[0]+' '+L.replyWhy+'.'):'')+(f?' <small>'+esc(f)+'</small>':'')+'</dd></div>'}
-if(L.best.length)h+='<div><dt>Best was '+esc(L.best[0])+'</dt><dd>'+(L.bestWhy?esc('It '+L.bestWhy+'.')+'<br>':'')+'<span class="sanl">'+esc(numLine(k,L.best))+'</span></dd></div>';
+h+='<div><dt>'+(L.mine?'What your opponent can do now':'What you can do now')+'</dt><dd><span class="sanl">'+esc(numLine(k+1,L.reply))+'</span>'+(L.replyWhy?'<br>'+esc(L.reply[0]+' '+L.replyWhy+'.'):'')+(f?'<br><small>'+esc(f)+'</small>':'')+'</dd></div>'}
+if(L.best.length)h+='<div><dt><span class="arrkey"></span>Best was '+esc(L.best[0])+'</dt><dd>'+(L.bestWhy?esc('It '+L.bestWhy+'.')+'<br>':'')+'<span class="sanl">'+esc(numLine(k,L.best))+'</span><br>'+LINEBTN+'</dd></div>';
 if(L.mine&&L.habit)h+='<div><dt>Habit to build</dt><dd>'+esc(L.habit)+'</dd></div>';
 return h+'</dl>'}
+// the player's own inaccuracies, mistakes, misses and blunders, as ply numbers
+const myBad=()=>{const a=[];if(G)for(let k=1;k<=G.san.length;k++)if(BAD.includes(G.cls[k])&&((k%2===1)===(G.me==='w')))a.push(k);return a};
 function draw(){if(!G)return;const V0=V;const fen=(V0?V0.fens[V0.vi]:G.fens[i]).split(' ')[0];const rows=fen.split('/').map(r=>{const a=[];for(const c of r){if(/\d/.test(c))for(let k=0;k<+c;k++)a.push('');else a.push(c)}return a});
 const bottom=flip?(G.me==='w'?'b':'w'):G.me;const last=V0?(V0.vi?V0.vm[V0.vi-1]:null):(i?G.vm[i-1]:null);let h='';
 for(let vr=0;vr<8;vr++)for(let vc=0;vc<8;vc++){const r=bottom==='w'?vr:7-vr,c=bottom==='w'?vc:7-vc;const sq='abcdefgh'[c]+(8-r);const light=(r+c)%2===0;const hl=last&&(sq===last.from||sq===last.to);const pc=rows[r][c];let inner='';
 if(pc)inner+='<span class="pc pc-'+(pc===pc.toUpperCase()?'w':'b')+pc.toUpperCase()+'"></span>';
-const cc=light?'#739552':'#EBECD0';
+const cc=light?'#56793A':'#FFFFFF';
 if(vc===0)inner+='<span class="co" style="top:4px;left:4px;color:'+cc+'">'+(8-r)+'</span>';
 if(vr===7)inner+='<span class="co" style="bottom:4px;right:4px;color:'+cc+'">'+'abcdefgh'[c]+'</span>';
 if(!V0&&last&&sq===last.to&&G.cls[i])inner+=badge(G.cls[i],true);
 h+='<div class="sq '+(light?'lt':'dk')+(hl?' hl':'')+'">'+inner+'</div>'}
 $('board').innerHTML=h;
+// blue arrow: the engine's best move, when the move played was a different one
+const c0=G.cls[i];let ar='';
+if(!V0&&i&&c0&&!['best','great','brilliant','book'].includes(c0)&&G.best[i-1]&&G.best[i-1]!==G.ucis[i-1]){const u=G.best[i-1],P=q=>{const f='abcdefgh'.indexOf(q[0]),r=+q[1]-1;return bottom==='w'?[f+.5,7.5-r]:[7.5-f,r+.5]};
+const [x1,y1]=P(u.slice(0,2)),[x2,y2]=P(u.slice(2,4)),d=Math.hypot(x2-x1,y2-y1)||1,ux=(x2-x1)/d,uy=(y2-y1)/d,bx=x2-ux*.36,by=y2-uy*.36,f=n=>n.toFixed(3);
+const shape='<line x1="'+f(x1+ux*.12)+'" y1="'+f(y1+uy*.12)+'" x2="'+f(bx)+'" y2="'+f(by)+'" stroke-linecap="round"/><polygon points="'+f(x2)+','+f(y2)+' '+f(bx-uy*.22)+','+f(by+ux*.22)+' '+f(bx+uy*.22)+','+f(by-ux*.22)+'"/>';
+ar='<g fill="#fff" stroke="#fff" stroke-width=".24" stroke-linejoin="round" opacity=".9">'+shape+'</g><g fill="#1F6FD0" stroke="#1F6FD0" stroke-width=".14" stroke-linejoin="round">'+shape+'</g>'}
+$('arrow').innerHTML=ar;
+$('board').setAttribute('aria-label','Chess board, '+(V0?'best line':i?'after '+mlab(i):'starting position'));
 const nm=(c)=>(c==='w'?G.white+(G.welo?' ('+G.welo+')':''):G.black+(G.belo?' ('+G.belo+')':''));
 $('topName').textContent=nm(bottom==='w'?'b':'w');$('botName').textContent=nm(bottom);
-$('mvLab').textContent=i?Math.ceil(i/2)+(i%2?'. ':'... ')+G.san[i-1]:'Start';
+$('mvLab').textContent=i?mlab(i):'Start';
 const e=G.ev[i];if(e!=null){$('evt').textContent=fmt(e);const wp=Math.round(wpW(e)*100);const topW=bottom==='b';$('evTop').style.height=(topW?wp:100-wp)+'%';$('evTop').style.background=topW?'#F0F0EE':'#403D39';$('evBot').style.height=(topW?100-wp:wp)+'%';$('evBot').style.background=topW?'#403D39':'#F0F0EE'}
+// mistake buttons and counter
+const mb=myBad(),at=mb.indexOf(i);$('bPrevM').disabled=!mb.some(k=>k<i);$('bNextM').disabled=!mb.some(k=>k>i);
+$('mCount').textContent=mb.length?(at>=0&&!V0?'Mistake '+(at+1)+' of '+mb.length:mb.length+(mb.length>1?' mistakes by you':' mistake by you')):G.done?'No mistakes by you':'';
+const gc=$('gcur');if(gc)gc.style.left=(G.san.length?i/G.san.length*100:0)+'%';
 if(V0){$('mvLab').textContent='Best line';lineNote();return}
-let n;if(!i)n='<b>Start of the game.</b> Step through with the arrows, tap any move, or jump to a key moment.';
+let n;if(!i)n='<b>Start of the game.</b> Step through with the arrows, tap any move, or use the Mistake buttons to jump between your mistakes.';
 else{const c=G.cls[i];const mine=(i%2===1)===(G.me==='w');const who=mine?'You':'Your opponent';
-if(c){n='<span class="lab"><b>'+badge(c)+' '+esc(mlab(i))+' is '+(c==='inaccuracy'?'an ':'a ')+C[c][0].toLowerCase()+'</b></span>';
-const L=BAD.includes(c)?coachMove(G,i):null,bs=!['best','great','brilliant','book'].includes(c)&&G.best[i-1]?sanOf(i-1,G.best[i-1]):'';
-if(L)n+=lessonHtml(L);else if(bs)n+='<div style="color:var(--muted)">Best was '+esc(bs)+'</div>';
-if(bs)n+='<button type="button" id="lineBtn" style="margin-top:10px">Show the best line, 10 moves deep</button>'}
-else n=esc(who)+' played '+esc(G.san[i-1])+'. <span style="color:var(--muted)">Stockfish is still checking this move.</span>'}
+if(c){const me=v=>fmt(G.me==='w'?v:-v),L=BAD.includes(c)?coachMove(G,i):null,bs=!['best','great','brilliant','book'].includes(c)&&G.best[i-1]?sanOf(i-1,G.best[i-1]):'';
+n='<div class="nh"><span class="lab"><b>'+badge(c)+' '+esc(mlab(i))+' is '+(c==='inaccuracy'?'an ':'a ')+C[c][0].toLowerCase()+'</b></span>'+(G.ev[i]!=null&&G.ev[i-1]!=null?'<span class="evl">Eval for you: '+me(G.ev[i-1])+' to '+me(G.ev[i])+'</span>':'')+'</div>';
+if(L&&L.best.length)n+=lessonHtml(L);else if(bs)n+=(L?lessonHtml(L):'')+'<div class="mut" style="margin-top:8px"><span class="arrkey"></span>Best was '+esc(bs)+'</div>'+LINEBTN}
+else n=esc(who)+' played '+esc(G.san[i-1])+'. <span class="mut">Stockfish is still checking this move.</span>'}
 $('note').innerHTML=n;
 document.querySelectorAll('.mb').forEach(b=>b.classList.toggle('on',+b.dataset.i===i));
-const on=document.querySelector('.mb.on');if(on){const box=$('ml');const t=on.offsetTop-box.offsetTop;if(t<box.scrollTop||t>box.scrollTop+box.clientHeight-40)box.scrollTop=t-60}}
+// keep the current move visible in whichever box scrolls (the list on phones, the tab panel on laptops)
+const on=document.querySelector('.mb.on');if(on&&!$('sp-moves').hidden){const box=getComputedStyle($('ml')).overflowY==='visible'?$('sp-moves'):$('ml'),r=on.getBoundingClientRect(),q=box.getBoundingClientRect();if(r.top<q.top||r.bottom>q.bottom)box.scrollTop+=r.top-q.top-q.height/2+r.height/2}}
+// The eval graph: the player's winning chances over the whole game, with a dot on every flagged move.
+function graph(){const el=$('graph');if(!G||!G.san.length){el.innerHTML='';return}const T=G.san.length;
+const y=k=>{const e=G.ev[k];return e==null?null:100-wpW(G.me==='w'?e:-e)*100};
+const pts=[];for(let k=0;k<=T;k++){const v=y(k);if(v==null)break;pts.push([k/T*100,v])}
+let h='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">';
+if(pts.length>1){const d=pts.map((p,j)=>(j?'L':'M')+p[0].toFixed(2)+' '+p[1].toFixed(1)).join(' ');
+h+='<path d="'+d+' L'+pts[pts.length-1][0].toFixed(2)+' 100 L0 100 Z" style="fill:var(--go);opacity:.25"/><path d="'+d+'" style="fill:none;stroke:var(--go);stroke-width:2" vector-effect="non-scaling-stroke"/>'}
+h+='<line x1="0" y1="50" x2="100" y2="50" style="stroke:var(--muted);stroke-width:1;opacity:.7" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/></svg>';
+for(let k=1;k<=T;k++){const c=G.cls[k],mine=(k%2===1)===(G.me==='w');if(!c||y(k)==null||!(BAD.includes(c)||(mine&&(c==='brilliant'||c==='great'))))continue;
+h+='<span class="gd" style="left:'+(k/T*100).toFixed(2)+'%;top:'+Math.max(8,Math.min(92,y(k))).toFixed(1)+'%;background:'+C[c][1]+(mine?'':';opacity:.5;width:7px;height:7px;margin:-3.5px 0 0 -3.5px')+'"></span>'}
+el.innerHTML=h+'<span class="gcap">Your winning chances</span><span class="gcur" id="gcur" style="left:'+(i/T*100)+'%"></span>'}
 function sanOf(k,uci){try{const t=new Chess(G.fens[k]);const m=t.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||'q'});return m?m.san:''}catch(e){return''}}
 
 // ---- tactics: name the idea behind a move, using chess.js positions ----
@@ -626,7 +745,7 @@ function list(){const T=G.san.length;let h='';for(let m=0;m<T;m+=2){h+='<span cl
 $('ml').innerHTML=h}
 function acc(side){const a=[];for(let k=1;k<=G.san.length;k++)if(G.cls[k]&&((k%2===1)===(side==='w'))){a.push(Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*G.loss[k]*100)-3.1669)))}return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}
 function panel(){const opp=G.me==='w'?'b':'w';const am=acc(G.me),ao=acc(opp);$('accMe').textContent=am==null?'-':am.toFixed(1);$('accOpp').textContent=ao==null?'-':ao.toFixed(1);
-$('accOppLab').textContent=(opp==='w'?G.white:G.black)+' accuracy';
+$('accOppLab').textContent=opp==='w'?G.white:G.black;graph();
 $('gTitle').textContent='vs '+(G.me==='w'?G.black:G.white)+(G.date?', '+G.date:'');
 $('asW').classList.toggle('on',G.me==='w');$('asB').classList.toggle('on',G.me==='b');
 const cnt={w:{},b:{}};ORDER.forEach(o=>{cnt.w[o]=0;cnt.b[o]=0});for(let k=1;k<=G.san.length;k++)if(G.cls[k])cnt[k%2?'w':'b'][G.cls[k]]++;
@@ -636,6 +755,7 @@ const ks=[];for(let k=1;k<=G.san.length;k++){const c=G.cls[k];if(!c||((k%2===1)!
 $('keys').innerHTML=ks.length?ks.map(k=>{const c=G.cls[k];const bs=['inaccuracy','mistake','miss','blunder'].includes(c)&&G.best[k-1]?sanOf(k-1,G.best[k-1]):'';return'<button type="button" class="km" data-i="'+k+'">'+badge(c)+Math.ceil(k/2)+(k%2?'. ':'... ')+esc(G.san[k-1])+'<small>'+(bs?'best '+esc(bs):C[c][0])+'</small></button>'}).join(''):'<p style="margin:0;color:var(--muted)">'+(G.done?'No big mistakes from you in this game. Clean play.':'Appear once the engine has checked your moves.')+'</p>';
 const th=G.done?themeSummary(G):null;
 $('themes').innerHTML=!th?'<p style="margin:0;color:var(--muted)">Appears when the review is complete.</p>':!th.length?'<p style="margin:0;color:var(--muted)">No inaccuracies, mistakes or blunders from you in this game.</p>':th.map(t=>'<div class="th"><div class="thh"><b>'+esc(t.label)+'</b><span>'+t.n+(t.n>1?' moves':' move')+'</span></div><div class="thm">'+t.moves.map(m=>'<button type="button" class="tm" data-i="'+m.k+'">'+badge(m.cls)+esc(Math.ceil(m.k/2)+(m.k%2?'. ':'... ')+m.san)+'</button>').join('')+'</div><div class="tip">'+esc(THEMES[t.theme][1])+'</div></div>').join('');
+const nb=myBad().length;$('st-mist').textContent='Mistakes'+(nb?' ('+nb+')':'');
 $('coach').textContent='';}
 
 function classify(k){const mw=k%2===1;const f=cp=>mw?wpW(cp):1-wpW(cp);const before=f(G.ev[k-1]),after=f(G.ev[k]);const loss=Math.max(0,before-after);const isBest=G.best[k-1]===G.ucis[k-1];let c;
@@ -645,7 +765,7 @@ if(G.book&&G.book[k])c='book';
 if(k>1&&['mistake','blunder','miss'].includes(G.cls[k-1])&&loss>=0.10&&!['best','great','brilliant'].includes(c))c='miss';
 G.cls[k]=c;G.loss[k]=loss}
 
-function prog(n,T,txt){const p=Math.round(n/(T+1)*100);$('pfill').style.width=p+'%';$('ppc').textContent=p+'%';$('ptx').textContent=txt}
+function prog(n,T,txt){const p=Math.round(n/(T+1)*100),done=txt==='Review complete';$('pfill').style.width=p+'%';$('tfill').style.width=(done?0:p)+'%';$('ppc').textContent=p+'%';$('ptx').textContent=txt;$('progWrap').hidden=done;$('progWrap').classList.remove('idle')}
 const NT=Math.max(1,Math.min(4,Math.floor((navigator.hardwareConcurrency||2)/2)));
 const MT=self.crossOriginIsolated===true&&typeof SharedArrayBuffer!=='undefined'&&NT>1;
 const ENGINES=[{f:'stockfish-19-lite-single.js',n:'Stockfish 19 lite'},{f:'stockfish.js',n:'Stockfish 10 (fallback)'}];
@@ -659,13 +779,13 @@ async function startEngine(){let err;for(const e of(ENG?[ENG]:ENGINES)){try{cons
 // Search limits for a review. Each position gets up to LIM.ms, but long games share
 // a total budget of LIM.total ms so a full review stays well under 90 seconds.
 const LIM={depth:16,ms:800,min:200,total:60000};
-async function analyze(){const my=++gen;const T=G.san.length;const goCmd='go depth '+LIM.depth+' movetime '+Math.round(Math.max(LIM.min,Math.min(LIM.ms,LIM.total/(T+1))));prog(0,T,'Starting Stockfish');
+async function analyze(){const my=++gen;const T=G.san.length;const goCmd='go depth '+LIM.depth+' movetime '+Math.round(Math.max(LIM.min,Math.min(LIM.ms,LIM.total/(T+1))));prog(0,T,'Starting Stockfish...');
 try{if(!worker)worker=await startEngine()}catch(e){$('ptx').textContent="Stockfish couldn't start in this browser. Try the page on a computer.";$('ppc').textContent='';return}
 if(my!==gen)return;worker.postMessage('ucinewgame');let cur=0,lines={},pv1='';
 const step=()=>{if(my!==gen)return;if(cur>T){G.done=true;prog(T+1,T,'Review complete');panel();draw();save();return}
 const t=new Chess(G.fens[cur]);if(t.game_over()){G.ev[cur]=t.in_checkmate()?(t.turn()==='w'?-10000:10000):0;G.w2[cur]=null;G.best[cur]=null;G.pv[cur]='';fin();return}
 lines={};pv1='';worker.postMessage('position fen '+G.fens[cur]);worker.postMessage(goCmd)};
-const fin=()=>{if(cur>0){classify(cur);list();if(cur===i||cur===i+1)draw();if(cur%6===0)panel()}cur++;prog(cur,T,'Analyzing move '+Math.min(cur,T)+' of '+T);step()};
+const fin=()=>{if(cur>0){classify(cur);list();if(cur===i||cur===i+1)draw();if(cur%6===0)panel();else graph()}cur++;prog(cur,T,'Analyzing move '+Math.min(cur,T)+' of '+T);step()};
 worker.onmessage=e=>{if(my!==gen)return;const l=String(e.data);
 if(l.startsWith('info')&&l.includes(' score ')){const mp=(l.match(/ multipv (\d+)/)||[0,'1'])[1];const s=l.match(/score (cp|mate) (-?\d+)/);if(!s)return;let v=+s[2];if(s[1]==='mate')v=v>0?10000-v:-10000-v;lines[mp]=v;if(mp==='1'){const pm=l.match(/ pv (.+)$/);if(pm)pv1=pm[1].trim().split(' ').slice(0,20).join(' ')}}
 else if(l.startsWith('bestmove')){const stm=G.fens[cur].split(' ')[1];const cv=v=>v==null?null:(stm==='w'?v:-v);G.ev[cur]=cv(lines['1']!=null?lines['1']:0);G.w2[cur]=cv(lines['2']);G.best[cur]=l.split(' ')[1];G.pv[cur]=pv1;fin()}};
@@ -678,7 +798,7 @@ else{try{const all=JSON.parse(localStorage.getItem('ccr-games')||'[]').filter(x=
 function fromDoc(d){const ch=new Chess(d.fen0||undefined);const g={H:{},san:[],fens:[ch.fen()],vm:[],ucis:[],sac:[]};
 for(const s of d.san){const m=ch.move(s);if(!m)break;g.san.push(m.san);g.vm.push(m);g.ucis.push(m.from+m.to+(m.promotion||''));g.fens.push(ch.fen());g.sac.push(false)}
 Object.assign(g,{id:d.id,white:d.white,black:d.black,welo:d.welo,belo:d.belo,result:d.result,me:d.me,opening:d.opening,date:d.date,ev:d.ev||[],w2:d.w2||[],best:d.best||[],cls:(d.cls||[]).map(c=>c||undefined),loss:d.loss||[],pv:d.pv||[],book:[],coach:d.coach||'',savedAt:d.savedAt,done:true});markBook(g);return g}
-function open(g,run){V=null;markBook(g);G=g;i=0;flip=false;list();panel();draw();if(run){analyze()}else{gen++;prog(1,0,'Review complete')}window.scrollTo({top:$('review').offsetTop-10,behavior:'smooth'})}
+function open(g,run){V=null;markBook(g);G=g;i=0;flip=false;loader(false);list();panel();draw();if(run){analyze()}else{gen++;prog(1,0,'Review complete')}go('review');window.scrollTo(0,0)}
 function review(text){$('perr').textContent='';let g;try{g=parsePGN(text)}catch(e){$('perr').textContent=e.message;return}meta(g);markBook(g);
 const old=hist.find(h=>h.id===g.id);if(old&&old.cls&&old.cls.length>1){open(fromDoc(old),false);return}open(g,true)}
 
@@ -691,7 +811,7 @@ const wins=sorted.filter(d=>res(d)==='W').length;
 const st=[['Games reviewed',N],['Win rate',N?Math.round(wins/N*100)+'%':'-'],['Avg accuracy (last 10)',accs.length?(accs.reduce((a,b)=>a+b,0)/accs.length).toFixed(1):'-'],['Blunders per game',N?(last.reduce((a,d)=>a+myBl(d),0)/last.length).toFixed(1):'-']];
 $('stats').innerHTML=st.map(s=>'<div class="card" style="background:var(--panel)"><div class="k">'+s[0]+'</div><div class="v">'+s[1]+'</div></div>').join('');workOn();
 if(!N){$('hist').innerHTML='<p style="margin:0;color:var(--muted)">Games you review are saved here automatically.</p>';$('opens').innerHTML='<p style="margin:0;color:var(--muted)">Your results by opening show up after a few games.</p>';return}
-$('hist').innerHTML=sorted.map(d=>{const r=res(d);const a=myAcc(d);const col=r==='W'?'#5E9A34':r==='L'?'#C4473A':'#8A8780';
+$('hist').innerHTML=sorted.map(d=>{const r=res(d);const a=myAcc(d);const col=r==='W'?'#3F7A1F':r==='L'?'#C4473A':'#6B6862';
 return'<div class="h"><span class="res" style="background:'+col+'">'+r+'</span><div><div class="t">vs '+esc(d.me==='w'?d.black:d.white)+'</div><div class="m">'+esc(d.date||'')+(d.date?' · ':'')+esc(d.opening||'')+(a!=null?' · '+a.toFixed(0)+'%':'')+'</div>'+(a!=null?'<div class="accbar"><div style="width:'+Math.round(a)+'%"></div></div>':'')+'</div><div class="hb"><button type="button" data-open="'+esc(d.id)+'">Open</button><button type="button" class="ghost" data-del="'+esc(d.id)+'" aria-label="Delete game">&#x2715;</button></div></div>'}).join('');
 const ops={};sorted.forEach(d=>{const k=(d.me==='w'?'White: ':'Black: ')+(d.opening||'Unknown').split(':')[0];ops[k]=ops[k]||{n:0,w:0};ops[k].n++;if(res(d)==='W')ops[k].w++});
 $('opens').innerHTML=Object.entries(ops).sort((a,b)=>b[1].n-a[1].n).slice(0,8).map(([k,v])=>'<div class="op"><span>'+esc(k)+'</span><span style="font-weight:800">'+v.w+'/'+v.n+' won</span></div>').join('')}
@@ -728,17 +848,34 @@ const prompt='You are a friendly, direct chess coach for Ibrahim Ali, a club pla
 try{await navigator.clipboard.writeText(prompt);$('coach').textContent='Copied. Open Claude, paste it into a chat, and send.'}catch(e){$('coach').innerHTML='<p style="margin:0 0 6px">Copy this text and paste it into Claude:</p><textarea readonly style="min-height:160px">'+esc(prompt)+'</textarea>'}});
 
 $('ml').addEventListener('click',e=>{const b=e.target.closest('.mb');if(b){V=null;i=+b.dataset.i;draw()}});
-const jump=e=>{const b=e.target.closest('.km,.tm');if(b){V=null;i=+b.dataset.i;draw();$('board').scrollIntoView({behavior:'smooth',block:'center'})}};
+const jump=e=>{const b=e.target.closest('.km,.tm');if(b){V=null;i=+b.dataset.i;draw();$('board').scrollIntoView({behavior:'smooth',block:'nearest'})}};
 $('keys').addEventListener('click',jump);$('themes').addEventListener('click',jump);
 $('bFirst').onclick=()=>{if(V)V.vi=0;else i=0;draw()};$('bLast').onclick=()=>{if(V)V.vi=V.san.length;else if(G)i=G.san.length;draw()};
 $('bPrev').onclick=()=>{if(V){if(V.vi>0)V.vi--}else if(i>0)i--;draw()};$('bNext').onclick=()=>{if(V){if(V.vi<V.san.length)V.vi++}else if(G&&i<G.san.length)i++;draw()};$('bFlip').onclick=()=>{flip=!flip;draw()};
-document.addEventListener('keydown',e=>{if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;if(e.key==='ArrowLeft')$('bPrev').click();if(e.key==='ArrowRight')$('bNext').click()});
+$('bNextM').onclick=()=>{const k=myBad().find(k=>k>i);if(k){V=null;i=k;draw()}};
+$('bPrevM').onclick=()=>{const a=myBad().filter(k=>k<i);if(a.length){V=null;i=a[a.length-1];draw()}};
+$('graph').addEventListener('click',e=>{if(!G)return;const r=$('graph').getBoundingClientRect(),T=G.san.length;V=null;i=Math.max(0,Math.min(T,Math.round((e.clientX-r.left)/r.width*T)));draw()});
+// keyboard: arrows step, Home and End jump, N and P go to the next and previous mistake, B shows the best line, F flips
+document.addEventListener('keydown',e=>{const t=e.target.tagName;if(t==='TEXTAREA'||t==='INPUT'||e.ctrlKey||e.metaKey||e.altKey||$('review').hidden)return;
+const k=e.key.length===1?e.key.toLowerCase():e.key,map={ArrowLeft:'bPrev',ArrowRight:'bNext',Home:'bFirst',End:'bLast',n:'bNextM',p:'bPrevM',f:'bFlip'};
+if(map[k]){e.preventDefault();$(map[k]).click()}else if(k==='b'){const b=$('lineBtn')||$('backBtn');if(b)b.click()}else if(k==='Escape'&&V){V=null;draw()}});
+// the three panels beside the board
+const STABS=['moves','mist','sum'];
+function stab(t){STABS.forEach(x=>{$('st-'+x).setAttribute('aria-selected',x===t);$('sp-'+x).hidden=x!==t});if(t==='moves')draw()}
+STABS.forEach(x=>{$('st-'+x).onclick=()=>stab(x)});
+// top-level tabs follow the address hash, so the back button and links work
+const TABS=['review','openings','progress'];
+function show(t){if(!TABS.includes(t))t='review';TABS.forEach(x=>{$(x).hidden=x!==t});document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.tab===t)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=(t==='review'?'':t[0].toUpperCase()+t.slice(1)+' | ')+"Ibrahim Ali's Chess Lab";if(t==='review')draw()}
+function go(t){if(location.hash.slice(1)===t||(!location.hash&&t==='review'))show(t);else location.hash=t}
+window.addEventListener('hashchange',()=>{show(location.hash.slice(1));window.scrollTo(0,0)});
+function loader(on){$('loader').hidden=!on;$('newBtn').setAttribute('aria-expanded',on?'true':'false')}
+$('loadHide').onclick=()=>loader(false);
+$('newBtn').onclick=()=>{const on=$('loader').hidden||$('review').hidden;loader(on);if(on){go('review');window.scrollTo(0,0)}};
 $('asW').onclick=()=>{if(G){G.me='w';panel();draw()}};$('asB').onclick=()=>{if(G){G.me='b';panel();draw()}};
 $('goBtn').onclick=()=>review($('pgn').value);
 $('exBtn').onclick=()=>{$('pgn').value=EXAMPLE;review(EXAMPLE)};
-$('newBtn').onclick=()=>{$('pgn').value='';$('paste').scrollIntoView({behavior:'smooth'});$('pgn').focus()};
 
-$('pgn').value=EXAMPLE;G=parsePGN(EXAMPLE);meta(G);list();panel();draw();$('ptx').textContent='Tap Review game to analyze this example, or paste your own.';
+$('pgn').value=EXAMPLE;G=parsePGN(EXAMPLE);meta(G);list();panel();show(location.hash.slice(1));$('ptx').textContent='This is the example game. Pick one of your games above, or press Review game to analyze this one.';
 try{const lh=JSON.parse(localStorage.getItem('ccr-games')||'[]');if(Array.isArray(lh)){hist=lh;renderHist()}}catch(e){}
 $('saveNote').textContent='Saved in this browser. Use Download backup to move your games to another device.';
 
@@ -795,8 +932,8 @@ $('lines').addEventListener('click',e=>{const b=e.target.closest('.ln');if(b){tS
 tStart(LINES[0]);
 let CC=[];
 const ccRes=p=>p.result==='win'?'W':['agreed','repetition','stalemate','insufficient','50move','timevsinsufficient'].includes(p.result)?'D':'L';
-function renderCC(){const u=($('uname').value||'').trim().toLowerCase();$('ccList').innerHTML=CC.map((g,k)=>{const meW=(g.white.username||'').toLowerCase()===u;const me=meW?g.white:g.black,op=meW?g.black:g.white;const r=ccRes(me);const col=r==='W'?'#5E9A34':r==='L'?'#C4473A':'#8A8780';const dt=g.end_time?new Date(g.end_time*1000).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
-return '<div class="h"><span class="res" style="background:'+col+'">'+r+'</span><div><div class="t">vs '+esc(op.username||'?')+' ('+esc(op.rating||'')+')</div><div class="m">'+esc(dt)+' · '+esc(g.time_class||'')+' · you were '+(meW?'White':'Black')+'</div></div><div class="hb"><button type="button" class="go" data-cc="'+k+'">Review</button></div></div>'}).join('')}
+function renderCC(){const u=($('uname').value||'').trim().toLowerCase();$('ccList').innerHTML=CC.map((g,k)=>{const meW=(g.white.username||'').toLowerCase()===u;const me=meW?g.white:g.black,op=meW?g.black:g.white;const r=ccRes(me);const col=r==='W'?'#3F7A1F':r==='L'?'#C4473A':'#6B6862';const dt=g.end_time?new Date(g.end_time*1000).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
+return '<div class="h"><span class="res" style="background:'+col+'">'+r+'</span><div><div class="t">vs '+esc(op.username||'?')+' ('+esc(op.rating||'')+')</div><div class="m">'+esc(dt)+' · '+esc(g.time_class||'')+' · as '+(meW?'White':'Black')+'</div></div><div class="hb"><button type="button" class="go" data-cc="'+k+'">Review</button></div></div>'}).join('')}
 async function loadCC(){const u=($('uname').value||'').trim().toLowerCase();if(!u){$('ccMsg').textContent='Enter your username first.';return}$('ccMsg').textContent='Loading your games...';
 try{const a=await(await fetch('https://api.chess.com/pub/player/'+encodeURIComponent(u)+'/games/archives')).json();const arch=(a.archives||[]).slice(-3).reverse();let games=[];
 for(const url of arch){const r=await(await fetch(url)).json();games=games.concat((r.games||[]).filter(g=>g.pgn&&(!g.rules||g.rules==='chess')).reverse());if(games.length>=30)break}
