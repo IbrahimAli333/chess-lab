@@ -126,6 +126,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;border:1px solid var(--line);bord
 .ml .n{color:var(--muted);font-size:13px;padding-top:13px}
 .mb{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 8px;border:0;background:transparent;font-weight:600;text-align:left;justify-content:flex-start;border-radius:8px}
 .mb.on{background:var(--sel)}
+.ml .q{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:none}.ml .q .dot{width:8px;height:8px;font-size:0;opacity:.85}
 .km{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;margin:0 0 6px;text-align:left;font-weight:600}
 .km small{color:var(--muted);font-weight:400;margin-left:auto}
 .coach{white-space:pre-wrap;font-size:15px;line-height:1.6}
@@ -155,7 +156,10 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;border:1px solid var(--line);bord
 }
 @media(hover:none){.keys{display:none}}
 /* openings and progress */
-.grid{display:grid;grid-template-columns:min(520px,calc(100vh - 330px)) minmax(0,1fr);gap:24px;align-items:start}
+.grid{display:grid;grid-template-columns:min(560px,max(320px,calc(100vh - 200px))) minmax(0,1fr);gap:24px;align-items:start}
+.minis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 14px}.minis .card{padding:8px 12px}.minis .card .k{font-size:12px}.minis .card .v{font-size:22px}
+@media(max-width:520px){.minis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vh{font-size:22px;margin:0 0 4px}
 @media(max-width:959px){.grid{grid-template-columns:minmax(0,1fr)}}
 .two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px;align-items:start}
 @media(max-width:900px){.two{grid-template-columns:minmax(0,1fr)}}
@@ -284,8 +288,6 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 </div></section>
 
 <section class="view" id="puzzles" aria-label="Puzzles from your games" hidden><div class="wrapc">
-<h2 style="font-size:22px">Puzzles from your games</h2>
-<p class="mut" style="max-width:720px">Every mistake, miss and blunder you made in a reviewed game becomes a puzzle: find the move you missed. Solve it cleanly and it comes back after 1, 3, 7, 16 and then 35 days. Miss it and it comes back soon, until it sticks.</p>
 <div class="grid">
 <section aria-label="Puzzle board">
 <div class="pbar"><span id="pzName">No puzzles yet</span><small id="pzStep"></small></div>
@@ -294,16 +296,15 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <div class="tnote" id="pzNote" aria-live="polite"></div>
 </section>
 <section aria-label="Your puzzles">
-<div class="cards" id="pzStats" style="margin-bottom:14px"></div>
+<h2 class="vh">Puzzles from your games</h2>
+<p class="mut sm">Your own mistakes, as puzzles. Solve one cleanly and it comes back after 1, 3, 7, 16 and 35 days; miss it and it comes back soon.</p>
+<div class="minis" id="pzStats"></div>
 <div class="panel"><h2>Coming up</h2><div id="pzList"><p class="mut" style="margin:0">Review a few of your games first. Your mistakes from them show up here.</p></div></div>
 </section>
 </div>
 </div></section>
 
 <section class="view" id="openings" aria-label="Opening trainer" hidden><div class="wrapc">
-<div class="panel" id="myOpen" style="margin-bottom:18px"></div>
-<h2 style="font-size:22px">Opening trainer</h2>
-<p class="mut" style="max-width:640px">Play the moves yourself. The trainer answers for your opponent and explains each idea. Learn mode shows the move; Practice mode makes you remember it.</p>
 <div class="grid">
 <section aria-label="Training board">
 <div class="pbar"><span id="tName">Pick a line</span><small id="tStep"></small></div>
@@ -312,10 +313,13 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <div class="tnote" id="tNote" aria-live="polite"></div>
 </section>
 <section aria-label="Lines">
+<h2 class="vh">Opening trainer</h2>
+<p class="mut sm">Play the moves yourself; the trainer answers and explains each idea. Learn shows the move, Practice makes you remember it.</p>
 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span style="font-weight:600">Mode</span><div class="seg" role="group" aria-label="Training mode"><button id="mLearn" type="button" class="on">Learn</button><button id="mPractice" type="button">Practice</button></div></div>
 <div id="lines"></div>
 </section>
 </div>
+<div class="panel" id="myOpen" style="margin-top:22px"></div>
 </div></section>
 
 <section class="view" id="progress" aria-label="Your progress" hidden><div class="wrapc">
@@ -799,11 +803,12 @@ if(c.mine&&c.habit)o.push('Habit: '+c.habit);return o}
 function themeSummary(g){const by={},W=SEV;for(let k=1;k<=g.san.length;k++){const c=g.cls[k];if(!BAD.includes(c)||((k%2===1)!==(g.me==='w')))continue;
 const m=coachMove(g,k);if(!m)continue;const t=by[m.theme]=by[m.theme]||{theme:m.theme,label:THEMES[m.theme][0],n:0,weight:0,moves:[]};t.n++;t.weight+=W[c];t.moves.push({k,cls:c,san:g.san[k-1]})}
 return Object.values(by).sort((a,b)=>b.weight-a.weight||b.n-a.n)}
-function list(){const T=G.san.length;let h='';for(let m=0;m<T;m+=2){h+='<span class="n">'+(m/2+1)+'.</span>';for(const k of[m+1,m+2]){if(k>T){h+='<span></span>';continue}h+='<button type="button" class="mb" data-i="'+k+'">'+(G.cls[k]?badge(G.cls[k]):'<span class="dot" style="background:var(--soft)"></span>')+esc(G.san[k-1])+'</button>'}}
+const QUIET=['best','excellent','good','book'];
+function list(){const T=G.san.length;let h='';for(let m=0;m<T;m+=2){h+='<span class="n">'+(m/2+1)+'.</span>';for(const k of[m+1,m+2]){if(k>T){h+='<span></span>';continue}h+='<button type="button" class="mb" data-i="'+k+'">'+(G.cls[k]?(QUIET.includes(G.cls[k])?'<span class="q">'+badge(G.cls[k])+'</span>':badge(G.cls[k])):'<span class="dot" style="background:var(--soft)"></span>')+esc(G.san[k-1])+'</button>'}}
 $('ml').innerHTML=h}
 function acc(side){const a=[];for(let k=1;k<=G.san.length;k++)if(G.cls[k]&&((k%2===1)===(side==='w'))){a.push(Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*G.loss[k]*100)-3.1669)))}return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}
 function panel(){const opp=G.me==='w'?'b':'w';const am=acc(G.me),ao=acc(opp);$('accMe').textContent=am==null?'-':am.toFixed(1);$('accOpp').textContent=ao==null?'-':ao.toFixed(1);
-$('accOppLab').textContent=opp==='w'?G.white:G.black;graph();
+$('accOppLab').textContent=opp==='w'?G.white:G.black;document.querySelector('.chips').hidden=am==null&&ao==null;graph();
 $('gTitle').textContent='vs '+(G.me==='w'?G.black:G.white)+(G.date?', '+G.date:'');
 $('asW').classList.toggle('on',G.me==='w');$('asB').classList.toggle('on',G.me==='b');
 const cnt={w:{},b:{}};ORDER.forEach(o=>{cnt.w[o]=0;cnt.b[o]=0});for(let k=1;k<=G.san.length;k++)if(G.cls[k])cnt[k%2?'w':'b'][G.cls[k]]++;
@@ -936,8 +941,11 @@ $('asW').onclick=()=>{if(G){G.me='w';panel();draw()}};$('asB').onclick=()=>{if(G
 $('goBtn').onclick=()=>review($('pgn').value);
 $('exBtn').onclick=()=>{$('pgn').value=EXAMPLE;review(EXAMPLE)};
 
-$('pgn').value=EXAMPLE;G=parsePGN(EXAMPLE);meta(G);list();panel();show(location.hash.slice(1));$('ptx').textContent='This is the example game. Pick one of your games above, or press Review game to analyze this one.';
 try{const lh=JSON.parse(localStorage.getItem('ccr-games')||'[]');if(Array.isArray(lh)){hist=lh;renderHist()}}catch(e){}
+// A returning visitor lands on their latest reviewed game with the loader closed; a first visit gets the loader and the example game.
+{const last=hist.slice().sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).find(d=>d&&d.san&&d.cls&&d.cls.length>1);if(last){try{G=fromDoc(last)}catch(e){G=null}}}
+if(G){loader(false);list();panel();prog(1,0,'Review complete');show(location.hash.slice(1))}
+else{G=parsePGN(EXAMPLE);meta(G);list();panel();show(location.hash.slice(1));$('ptx').textContent='This is the example game. Pick one of your games above, or press Try the example game to analyze it.'}
 $('saveNote').textContent='Saved in this browser. Use Download backup to move your games to another device.';
 
 const LINES=[
