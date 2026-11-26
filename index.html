@@ -194,6 +194,8 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 .clk .gcap{position:absolute;left:8px;top:4px;font-size:11px;color:var(--muted)}
 .facts{margin:0;padding-left:20px;display:grid;gap:6px;font-size:15px}
 .facts button{min-height:32px;padding:0 8px;font-size:14px;margin:0 2px}
+.deep{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:14px}
+.deep .facts{font-size:14px;gap:2px}
 .habit{margin:10px 0 0;font-size:14px;background:var(--soft);border-radius:10px;padding:10px 12px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 .pc-wP{background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==');}
@@ -330,7 +332,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 </div>
 </div></section>
 </main>
-<footer><div class="wrapc">Engine: Stockfish 19 lite, built for the web by Stockfish.js (GPLv3, source at github.com/nmrugg/stockfish.js and github.com/official-stockfish/Stockfish). It runs on several threads when your browser allows it, with a single-threaded build and Stockfish 10 as fallbacks. Everything runs in your browser. Engine in use: <span id="engName">starts with your first review</span>. Move logic: chess.js (BSD 2-Clause). Pieces by Colin M.L. Burnett (CC BY-SA 3.0). Opening names: lichess-org/chess-openings (CC0). Ratings follow chess.com's style but are not identical to it.</div></footer>
+<footer><div class="wrapc">Engine: Stockfish 19 lite, built for the web by Stockfish.js (GPLv3, source at github.com/nmrugg/stockfish.js and github.com/official-stockfish/Stockfish). It runs on several threads when your browser allows it, with a single-threaded build and Stockfish 10 as fallbacks. Everything runs in your browser. Engine in use: <span id="engName">starts with your first review</span>. Deep check loads the full Stockfish 19 network from unpkg.com (npm package stockfish 19.0.1, GPLv3) only when you press it. Move logic: chess.js (BSD 2-Clause). Pieces by Colin M.L. Burnett (CC BY-SA 3.0). Opening names: lichess-org/chess-openings (CC0). Ratings follow chess.com's style but are not identical to it.</div></footer>
 
 <script src="chess.js"></script>
 <script>
@@ -435,7 +437,7 @@ if(c){const me=v=>fmt(G.me==='w'?v:-v),L=BAD.includes(c)?coachMove(G,i):null,bs=
 n='<div class="nh"><span class="lab"><b>'+badge(c)+' '+esc(mlab(i))+' '+IS[c]+'</b></span>'+(G.ev[i]!=null&&G.ev[i-1]!=null?'<span class="evl">Eval for you: '+me(G.ev[i-1])+' to '+me(G.ev[i])+'</span>':'')+'</div>';
 if(L&&L.best.length)n+=lessonHtml(L);else if(bs)n+=(L?lessonHtml(L):'')+'<div class="mut" style="margin-top:8px"><span class="arrkey"></span>Best was '+esc(bs)+'</div>'+LINEBTN}
 else n=esc(who)+' played '+esc(G.san[i-1])+'. <span class="mut">Stockfish is still checking this move.</span>'}
-$('note').innerHTML=n;
+$('note').innerHTML=n;document.dispatchEvent(new Event('cl:draw'));
 document.querySelectorAll('.mb').forEach(b=>b.classList.toggle('on',+b.dataset.i===i));
 // keep the current move visible in whichever box scrolls (the list on phones, the tab panel on laptops)
 const on=document.querySelector('.mb.on');if(on&&!$('sp-moves').hidden){const box=getComputedStyle($('ml')).overflowY==='visible'?$('sp-moves'):$('ml'),r=on.getBoundingClientRect(),q=box.getBoundingClientRect();if(r.top<q.top||r.bottom>q.bottom)box.scrollTop+=r.top-q.top-q.height/2+r.height/2}}

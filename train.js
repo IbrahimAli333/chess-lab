@@ -581,4 +581,136 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 }
 renderAppBox();
 
+// ---------------------------------------------------------------------------
+// 5. Deep check: one move with the full-strength Stockfish 19
+// ---------------------------------------------------------------------------
+// The review uses the small "lite" network so a whole game takes seconds. The full
+// network is stronger but about 95 MB, so it is loaded only when you ask, from
+// unpkg.com (npm package "stockfish" 19.0.1, GPLv3), and kept in the browser cache.
+const DEEP_VER = '19.0.1';
+const DEEP_MT = self.crossOriginIsolated === true && typeof SharedArrayBuffer !== 'undefined' && (navigator.hardwareConcurrency || 2) >= 4;
+const DEEP_JS = DEEP_MT ? 'stockfish-19.js' : 'stockfish-19-single.js';
+const DEEP_WASM = 'https://unpkg.com/stockfish@' + DEEP_VER + '/bin/' + DEEP_JS.replace('.js', '.wasm');
+const DEEP_CACHE = 'cl-deep-v1';
+const DEEP_T = { top: 6000, played: 3000 };           // ms of thinking: the three best moves, then your move
+const DR = new Map();
+let deepW = null, deepBusy = null, deepHave = null;
+const phoneish = () => (navigator.deviceMemory && navigator.deviceMemory < 4) || /Android|iPhone|iPad/.test(navigator.userAgent);
+async function deepCached() {
+  if (deepHave != null) return deepHave;
+  try { deepHave = !!(window.caches && await (await caches.open(DEEP_CACHE)).match(DEEP_WASM)); } catch (e) { deepHave = false; }
+  return deepHave;
+}
+async function deepDownload(onp) {
+  const res = await fetch(DEEP_WASM, { mode: 'cors' });
+  if (!res.ok || !res.body) throw new Error('download');
+  const total = +res.headers.get('content-length') || 95e6, reader = res.body.getReader(), parts = [];
+  let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onp(Math.min(1, got / total)); }
+  try { await (await caches.open(DEEP_CACHE)).put(DEEP_WASM, new Response(new Blob(parts, { type: 'application/wasm' }), { headers: { 'Content-Type': 'application/wasm' } })); deepHave = true; } catch (e) {}
+}
+function deepBoot() {
+  return new Promise((res, rej) => {
+    let w;
+    try { w = new Worker(DEEP_JS + '#' + encodeURIComponent(DEEP_WASM)); } catch (e) { rej(e); return; }
+    let ok = false;
+    const t = setTimeout(() => { if (!ok) { try { w.terminate(); } catch (x) {} rej(new Error('timeout')); } }, 180000);
+    w.onerror = e => { if (e && e.preventDefault) e.preventDefault(); clearTimeout(t); try { w.terminate(); } catch (x) {} rej(new Error('load')); };
+    w.onmessage = e => { if (String(e.data) === 'readyok' && !ok) { ok = true; clearTimeout(t); res(w); } };
+    w.postMessage('uci');
+    if (DEEP_MT) w.postMessage('setoption name Threads value ' + Math.min(4, Math.floor((navigator.hardwareConcurrency || 4) / 2)));
+    w.postMessage('setoption name Hash value 128');
+    w.postMessage('isready');
+  });
+}
+// lines[multipv] = {cp (side to move), pv: [uci...], d}
+function deepSearch(w, fen, go, mpv, onDepth) {
+  return new Promise(res => {
+    const lines = {}; let depth = 0;
+    w.onmessage = e => {
+      const l = String(e.data);
+      if (l.startsWith('info') && / score /.test(l) && / pv /.test(l) && !/bound/.test(l)) {
+        const mp = +((l.match(/ multipv (\d+)/) || [0, 1])[1]), s = l.match(/score (cp|mate) (-?\d+)/), d = +((l.match(/ depth (\d+)/) || [0, 0])[1]);
+        let v = +s[2]; if (s[1] === 'mate') v = v > 0 ? 10000 - v : -10000 - v;
+        lines[mp] = { cp: v, pv: l.match(/ pv (.+)$/)[1].trim().split(' '), d };
+        if (d > depth) { depth = d; if (onDepth) onDepth(d); }
+      }
+      if (l.startsWith('bestmove')) res({ lines, depth });
+    };
+    w.postMessage('setoption name MultiPV value ' + mpv);
+    w.postMessage('position fen ' + fen);
+    w.postMessage(go);
+  });
+}
+const CLS_BY_LOSS = l => l < 0.02 ? 'excellent' : l < 0.05 ? 'good' : l < 0.10 ? 'inaccuracy' : l < 0.20 ? 'mistake' : 'blunder';
+const RANK = { brilliant: 0, great: 0, best: 0, book: 0, excellent: 1, good: 2, inaccuracy: 3, mistake: 4, miss: 4, blunder: 5 };
+function sanLine(fen, ucis, n) {
+  const c = new Chess(fen), out = [];
+  for (const u of ucis.slice(0, n)) { const m = c.move(uciMove(u)); if (!m) break; out.push(m.san); }
+  return out;
+}
+async function deepRun(g, k) {
+  const fen = g.fens[k - 1], played = g.ucis[k - 1], key = fen + '|' + played;
+  const R = { state: 'run', msg: 'Starting...' };
+  DR.set(key, R); deepBusy = key; deepPaint();
+  const say = m => { R.msg = m; deepPaint(); };
+  try {
+    if (!deepW) {
+      if (!(await deepCached())) await deepDownload(p => say('Downloading the full Stockfish 19: ' + Math.round(p * 100) + '% of about 95 MB. Only the first time.'));
+      say('Starting the full engine...');
+      deepW = await deepBoot();
+    }
+    const top = await deepSearch(deepW, fen, 'go depth 40 movetime ' + DEEP_T.top, 3, d => say('Thinking, depth ' + d + '...'));
+    let pl = Object.values(top.lines).find(x => x.pv[0] === played);
+    if (!pl) { const r = await deepSearch(deepW, fen, 'go depth 40 movetime ' + DEEP_T.played + ' searchmoves ' + played, 1, d => say('Now checking ' + g.san[k - 1] + ', depth ' + d + '...')); pl = r.lines[1]; }
+    const best = top.lines[1];
+    if (!best || !pl) throw new Error('no result');
+    const loss = Math.max(0, CL.wpW(best.cp) - CL.wpW(pl.cp));
+    Object.assign(R, { state: 'done', depth: top.depth, mover: fen.split(' ')[1],
+      top: [1, 2, 3].map(j => top.lines[j]).filter(Boolean).map(x => ({ cp: x.cp, san: sanLine(fen, x.pv, 6) })),
+      played: { cp: pl.cp, san: g.san[k - 1] }, cls: played === best.pv[0] || loss < 0.005 ? 'best' : CLS_BY_LOSS(loss), loss, quick: g.cls[k] });
+  } catch (e) {
+    Object.assign(R, { state: 'error', msg: 'The full engine could not run here' + (phoneish() ? ' (it needs more memory than this device allows).' : '. Try again, or use a laptop.') });
+    if (deepW) { try { deepW.terminate(); } catch (x) {} deepW = null; }
+  }
+  deepBusy = null; deepPaint();
+}
+function deepHtml(g, k) {
+  const fen = g.fens[k - 1], R = DR.get(fen + '|' + g.ucis[k - 1]);
+  const youMoved = isMine(g, k), pov = cp => CL.fmt(youMoved ? cp : -cp);   // evals "for you", like the rest of the review
+  if (!R) {
+    const busy = deepBusy ? ' disabled' : '';
+    return '<button type="button" class="lnb" data-deep="' + k + '"' + busy + '>Deep check with full Stockfish</button> <span class="tip">' + (deepBusy ? 'Busy with another move.' : deepHave ? 'Stronger and slower, about 10 seconds.' : 'Stronger and slower. The first time downloads about 95 MB' + (phoneish() ? ', best done on a laptop.' : '.')) + '</span>';
+  }
+  if (R.state === 'run') return '<b>Deep check:</b> <span class="tip">' + esc(R.msg) + '</span>';
+  if (R.state === 'error') return '<b>Deep check:</b> <span class="tip">' + esc(R.msg) + '</span> <button type="button" class="lnb" data-deep="' + k + '" data-retry="1">Try again</button>';
+  const n0 = Math.ceil(k / 2), w0 = k % 2 === 1;
+  const num = sans => sans.map((s, j) => { const p = k + j, num = Math.ceil(p / 2); return (p % 2 === 1 ? num + '. ' : j === 0 ? num + '... ' : '') + s; }).join(' ');
+  const same = RANK[R.cls] === RANK[R.quick], near = Math.abs(RANK[R.cls] - RANK[R.quick]) === 1;
+  const word = c => (c === 'inaccuracy' ? 'an ' : 'a ') + CL.C[c][0].toLowerCase() + (c === 'best' ? ' move' : '');
+  const verdict = R.cls === 'best' ? (R.quick === 'best' || RANK[R.quick] === 0 ? 'Full Stockfish agrees: this was the best move.' : 'Full Stockfish finds no real problem with this move. The quick review called it ' + word(R.quick) + '.')
+    : same ? 'Full Stockfish agrees with the review: ' + word(R.cls) + '.'
+    : near ? 'Close to the review: full Stockfish calls it ' + word(R.cls) + ', the quick review said ' + word(R.quick) + '.'
+    : 'Full Stockfish sees it differently: ' + word(R.cls) + ', where the quick review said ' + word(R.quick) + '.';
+  return '<b>Deep check, full Stockfish 19, depth ' + R.depth + '</b>' +
+    '<ol class="facts" style="margin:6px 0">' + R.top.map(t => '<li><b>' + esc(t.san[0] || '') + '</b> ' + pov(t.cp) + ' <span class="tip">' + esc(num(t.san)) + '</span></li>').join('') + '</ol>' +
+    '<div>' + (youMoved ? 'Your move ' : 'Their move ') + '<b>' + esc(R.played.san) + '</b>: ' + pov(R.played.cp) + (R.cls === 'best' ? '' : ', ' + Math.round(R.loss * 100) + '% of winning chances lost') + '.</div>' +
+    '<div style="margin-top:4px"><b>' + esc(verdict) + '</b></div><div class="tip">Evals are for you. The saved rating does not change.</div>';
+}
+function deepPaint() {
+  const g = CL.G, k = CL.i, note = $('note');
+  if (!note || !g || !g.done || CL.V || !k || !g.fens[k - 1] || !g.ucis[k - 1]) return;
+  let box = $('deepBox');
+  if (!box) { box = document.createElement('div'); box.id = 'deepBox'; box.className = 'deep'; note.appendChild(box); }
+  box.innerHTML = deepHtml(g, k);
+}
+on('cl:draw', () => { deepCached().then(deepPaint); });
+$('note').addEventListener('click', e => {
+  const b = e.target.closest('[data-deep]');
+  if (!b || deepBusy || !CL.G) return;
+  const k = +b.dataset.deep;
+  if (b.dataset.retry) DR.delete(CL.G.fens[k - 1] + '|' + CL.G.ucis[k - 1]);
+  deepRun(CL.G, k);
+});
+
 })();
