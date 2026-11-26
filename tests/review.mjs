@@ -4,8 +4,13 @@
 //   node review.mjs --expect=stockfish-19-lite.js   (engine file that must load)
 //   node review.mjs --block=stockfish-19 --expect=stockfish.js   (simulate a browser that cannot load the new engine)
 //   node review.mjs --headed
+//   node review.mjs --mock          (never call chess.com, always use the stand-in games from fixtures.mjs)
+// The chess.com API and Google Fonts are outside this repo. When this machine cannot reach
+// them (a sandbox, CI), the chess.com list is answered from fixtures.mjs and the font check
+// is skipped. Everything else runs the same either way.
 import { chromium } from 'playwright';
 import { serve } from './serve.mjs';
+import { mockChessCom } from './fixtures.mjs';
 
 const arg = n => (process.argv.find(a => a.startsWith('--' + n + '=')) || '').split('=').slice(1).join('=');
 const flag = n => process.argv.includes('--' + n);
@@ -15,7 +20,22 @@ const check = (ok, msg, extra) => { console.log((ok ? 'PASS  ' : 'FAIL  ') + msg
 let local = null, url = arg('url');
 if (!url) { local = await serve(); url = local.url; }
 const browser = await chromium.launch({ headless: !flag('headed') });
+
+// Can this machine reach the two outside services? Asked from a real page, so proxies and CORS count.
+const probe = await browser.newPage();
+await probe.goto(url, { waitUntil: 'domcontentloaded' });
+const reach = await probe.evaluate(async () => {
+  const ok = async u => { try { const c = new AbortController(); setTimeout(() => c.abort(), 10000); return (await fetch(u, { signal: c.signal })).ok; } catch (e) { return false; } };
+  return { cc: await ok('https://api.chess.com/pub/player/hikaru'), fonts: await ok('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap') };
+});
+await probe.close();
+const mockCC = flag('mock') || !reach.cc;
+if (mockCC) console.log('NOTE  chess.com API ' + (flag('mock') ? 'not called (--mock)' : 'is not reachable from here') + ': the recent games list is answered from fixtures.mjs');
+if (!reach.fonts) console.log('NOTE  Google Fonts is not reachable from here: the font check is skipped');
+
 const page = await browser.newPage();
+if (mockCC) await mockChessCom(page);
+if (!reach.fonts) await page.route(u => /fonts\.(googleapis|gstatic)\.com$/.test(u.hostname), r => r.fulfill({ status: 200, contentType: 'text/css', headers: { 'Access-Control-Allow-Origin': '*' }, body: '' }));
 const reqs = [], bad = [], errors = [];
 if (arg('block')) await page.route(u => u.pathname.includes(arg('block')), r => r.abort());
 page.on('request', r => reqs.push(r.url()));
@@ -32,10 +52,12 @@ const expectEngine = arg('expect') || (isolated ? 'stockfish-19-lite.js' : 'stoc
 // Google Fonts and the chess.com API must both work (also under COEP).
 await page.waitForFunction(() => /Your last \d+ games|No recent games|Couldn't reach/.test(document.getElementById('ccMsg').textContent), null, { timeout: 30000 });
 const ccMsg = await page.textContent('#ccMsg');
-check(/Your last \d+ games/.test(ccMsg), 'chess.com API loads recent games', ccMsg);
+check(/Your last \d+ games/.test(ccMsg), (mockCC ? 'recent games list renders (mocked chess.com API)' : 'chess.com API loads recent games'), ccMsg);
 await page.evaluate(() => document.fonts.ready);
-const font = await page.evaluate(() => document.fonts.check('600 16px Manrope') && [...document.fonts].some(f => /Manrope/.test(f.family) && f.status === 'loaded'));
-check(font, 'Google Font (Manrope) loads');
+if (reach.fonts) {
+  const font = await page.evaluate(() => document.fonts.check('600 16px Manrope') && [...document.fonts].some(f => /Manrope/.test(f.family) && f.status === 'loaded'));
+  check(font, 'Google Font (Manrope) loads');
+}
 
 // Full review of the built-in example game.
 const t0 = Date.now();
