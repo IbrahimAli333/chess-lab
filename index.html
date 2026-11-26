@@ -185,6 +185,7 @@ html{scroll-padding-top:12px}
 <p id="saveNote" style="margin:-6px 0 10px;color:var(--muted);font-size:14px"></p>
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px"><button id="bkDown" type="button">Download backup</button><label class="btn" for="bkFile" style="display:inline-flex;align-items:center">Restore backup</label><input id="bkFile" type="file" accept=".json,application/json" style="position:absolute;opacity:0;width:1px;height:1px"></div>
 <div class="stats" id="stats"></div>
+<div class="panel" style="margin-bottom:18px"><h2>What to work on</h2><div id="work"><p style="margin:0;color:var(--muted)">After a few reviewed games this shows which kinds of mistakes cost you the most.</p></div></div>
 <div class="grid" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)">
 <div class="panel"><h2>Saved games</h2><div class="hist" id="hist"><p style="margin:0;color:var(--muted)">Games you review are saved here automatically.</p></div></div>
 <div class="panel"><h2>Your openings</h2><div id="opens"><p style="margin:0;color:var(--muted)">Your results by opening show up after a few games.</p></div></div>
@@ -688,13 +689,29 @@ const myBl=d=>(d.cls||[]).filter((c,k)=>c==='blunder'&&((k%2===1)===(d.me==='w')
 const N=sorted.length;const last=sorted.slice(0,10);const accs=last.map(myAcc).filter(x=>x!=null);
 const wins=sorted.filter(d=>res(d)==='W').length;
 const st=[['Games reviewed',N],['Win rate',N?Math.round(wins/N*100)+'%':'-'],['Avg accuracy (last 10)',accs.length?(accs.reduce((a,b)=>a+b,0)/accs.length).toFixed(1):'-'],['Blunders per game',N?(last.reduce((a,d)=>a+myBl(d),0)/last.length).toFixed(1):'-']];
-$('stats').innerHTML=st.map(s=>'<div class="card" style="background:var(--panel)"><div class="k">'+s[0]+'</div><div class="v">'+s[1]+'</div></div>').join('');
+$('stats').innerHTML=st.map(s=>'<div class="card" style="background:var(--panel)"><div class="k">'+s[0]+'</div><div class="v">'+s[1]+'</div></div>').join('');workOn();
 if(!N){$('hist').innerHTML='<p style="margin:0;color:var(--muted)">Games you review are saved here automatically.</p>';$('opens').innerHTML='<p style="margin:0;color:var(--muted)">Your results by opening show up after a few games.</p>';return}
 $('hist').innerHTML=sorted.map(d=>{const r=res(d);const a=myAcc(d);const col=r==='W'?'#5E9A34':r==='L'?'#C4473A':'#8A8780';
 return'<div class="h"><span class="res" style="background:'+col+'">'+r+'</span><div><div class="t">vs '+esc(d.me==='w'?d.black:d.white)+'</div><div class="m">'+esc(d.date||'')+(d.date?' · ':'')+esc(d.opening||'')+(a!=null?' · '+a.toFixed(0)+'%':'')+'</div>'+(a!=null?'<div class="accbar"><div style="width:'+Math.round(a)+'%"></div></div>':'')+'</div><div class="hb"><button type="button" data-open="'+esc(d.id)+'">Open</button><button type="button" class="ghost" data-del="'+esc(d.id)+'" aria-label="Delete game">&#x2715;</button></div></div>'}).join('');
 const ops={};sorted.forEach(d=>{const k=(d.me==='w'?'White: ':'Black: ')+(d.opening||'Unknown').split(':')[0];ops[k]=ops[k]||{n:0,w:0};ops[k].n++;if(res(d)==='W')ops[k].w++});
 $('opens').innerHTML=Object.entries(ops).sort((a,b)=>b[1].n-a[1].n).slice(0,8).map(([k,v])=>'<div class="op"><span>'+esc(k)+'</span><span style="font-weight:800">'+v.w+'/'+v.n+' won</span></div>').join('')}
 
+// What to work on: the player's mistakes in the last 20 saved games, grouped by theme. Recomputed from the
+// saved engine data (nothing extra is stored), one game per tick so the page stays responsive.
+const WC=new Map();let wgen=0;
+async function workOn(){const my=++wgen,games=hist.filter(d=>d&&d.cls&&d.cls.length>1&&d.san).sort((a,b)=>(b.savedAt||0)-(a.savedAt||0)).slice(0,20);
+if(!games.length){$('work').innerHTML='<p style="margin:0;color:var(--muted)">After a few reviewed games this shows which kinds of mistakes cost you the most.</p>';return}
+const by={};let total=0;
+for(const d of games){let c=WC.get(d.id);if(!c||c.at!==d.savedAt||c.me!==d.me){await new Promise(r=>setTimeout(r));if(my!==wgen)return;let sum=[];try{sum=themeSummary(fromDoc(d))}catch(e){}c={at:d.savedAt,me:d.me,sum};WC.set(d.id,c)}
+for(const t of c.sum){const b=by[t.theme]=by[t.theme]||{theme:t.theme,n:0,weight:0,games:0,ex:[]};b.n+=t.n;b.weight+=t.weight;b.games++;total+=t.n;for(const m of t.moves)b.ex.push({id:d.id,k:m.k,san:m.san,cls:m.cls,opp:d.me==='w'?d.black:d.white})}}
+const rows=Object.values(by).sort((a,b)=>b.weight-a.weight||b.n-a.n),N=games.length;
+if(!rows.length){$('work').innerHTML='<p style="margin:0;color:var(--muted)">No inaccuracies, mistakes or blunders from you in your last '+N+' reviewed game'+(N>1?'s':'')+'.</p>';return}
+const top=rows.slice(0,5),rest=rows.slice(5),mx=top[0].weight;
+$('work').innerHTML='<p class="tip" style="margin:0 0 12px">From your last '+N+' reviewed game'+(N>1?'s':'')+': '+total+' inaccuracies, mistakes and blunders, sorted by how much they cost. Tap an example to see it on the board.</p>'+
+top.map((t,j)=>{t.ex.sort((a,b)=>SEV[b.cls]-SEV[a.cls]);return'<div class="th"><div class="thh"><b>'+(j+1)+'. '+esc(THEMES[t.theme][0])+'</b><span>'+t.n+(t.n>1?' times':' time')+' in '+t.games+' of '+N+(N>1?' games':' game')+'</span></div><div class="accbar" style="margin:8px 0"><div style="width:'+Math.max(4,Math.round(t.weight/mx*100))+'%"></div></div><div>'+esc(THEMES[t.theme][2])+'</div><div class="thm">'+
+t.ex.slice(0,3).map(x=>'<button type="button" class="tm" data-open="'+esc(x.id)+'" data-k="'+x.k+'">'+badge(x.cls)+esc(Math.ceil(x.k/2)+(x.k%2?'. ':'... ')+x.san+' vs '+x.opp)+'</button>').join('')+'</div></div>'}).join('')+
+(rest.length?'<p class="tip" style="margin:12px 0 0">Less often: '+rest.map(t=>esc(THEMES[t.theme][0])+' '+t.n).join(', ')+'.</p>':'')}
+$('work').addEventListener('click',e=>{const b=e.target.closest('[data-open]');if(!b)return;const doc=hist.find(h=>h.id===b.dataset.open);if(!doc)return;open(fromDoc(doc),false);i=Math.min(+b.dataset.k,G.san.length);draw()});
 $('hist').addEventListener('click',async e=>{const o=e.target.closest('[data-open]'),d=e.target.closest('[data-del]');
 if(o){const doc=hist.find(h=>h.id===o.dataset.open);if(doc)open(fromDoc(doc),!(doc.cls&&doc.cls.length>1))}
 if(d){if(d.dataset.sure!=='1'){d.dataset.sure='1';d.textContent='Delete?';setTimeout(()=>{d.dataset.sure='';d.innerHTML='&#x2715;'},3000);return}
