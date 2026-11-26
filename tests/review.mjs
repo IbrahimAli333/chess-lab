@@ -51,6 +51,8 @@ page.on('response', r => { if (r.status() >= 400 && !preview(r.url())) bad.push(
 page.on('pageerror', e => errors.push(String(e)));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
+// these checks describe the owner's own setup (the example game is theirs); features.mjs covers a new visitor
+await page.addInitScript(() => { try { if (!localStorage.getItem('ccr-user')) localStorage.setItem('ccr-user', 'ibrahimaliKH'); } catch (e) {} });
 await page.goto(url, { waitUntil: 'load' });
 const isolated = await page.evaluate(() => self.crossOriginIsolated);
 console.log('URL ' + url + '   crossOriginIsolated=' + isolated);
@@ -191,7 +193,7 @@ await page.click('#st-sum');
 await page.evaluate(() => { navigator.clipboard.writeText = t => { window.__copied = t; return Promise.resolve(); }; });
 await page.click('#coachBtn');
 const copied = await page.evaluate(() => window.__copied || '');
-check(/What went wrong: /.test(copied) && /Opponent can now play: \d+\./.test(copied) && /Engine line instead: \d+\./.test(copied) && /Habit: /.test(copied) && /His mistakes by theme: [A-Z]/.test(copied) && !/\u2014/.test(copied), 'copy for Claude text includes the lesson for each mistake and the themes');
+check(/What went wrong: /.test(copied) && /Opponent can now play: \d+\./.test(copied) && /Engine line instead: \d+\./.test(copied) && /Habit: /.test(copied) && /Ibrahim Ali's mistakes by theme: [A-Z]/.test(copied) && !/\u2014/.test(copied), 'copy for Claude text includes the lesson for each mistake and the themes');
 await page.click('#asB'); await page.click('#st-moves');
 
 // ---- saved games and backups made by the previous version still load ----
@@ -225,6 +227,7 @@ const phone = await browser.newContext({ viewport: { width: 360, height: 740 }, 
 const pp = await phone.newPage();
 if (mockCC) await mockChessCom(pp);
 await pp.addInitScript(g => { try { localStorage.setItem('ccr-games', g); } catch (e) {} }, JSON.stringify(after.games));
+await pp.addInitScript(() => { try { if (!localStorage.getItem('ccr-user')) localStorage.setItem('ccr-user', 'ibrahimaliKH'); } catch (e) {} });
 await pp.goto(url, { waitUntil: 'load' });
 await pp.waitForFunction(() => /Your last \d+ games|No recent games|Couldn't reach/.test(document.getElementById('ccMsg').textContent), null, { timeout: 30000 });
 const measure = () => pp.evaluate(() => {

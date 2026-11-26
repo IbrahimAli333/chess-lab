@@ -12,6 +12,9 @@ Everything runs in the browser. Stockfish analyzes on your own device, and your 
 - **Progress**: results, accuracy, "What to work on", which groups the mistakes from your last 20 reviewed games by theme with examples you can open, and your clock across games.
 - **Offline and on your phone**: after one visit online it works offline, and it can be installed like an app (Progress, Use it as an app).
 
+## Sharing it
+Anyone with the link can use it. A first visit starts with an empty username box and a neutral title; each person's games and progress stay in their own browser. The site owner's setup (title, the Copy game for Claude text and two trainer line names) appears only when the username is the owner's, set in `OWNER` in `index.html`.
+
 ## Where things are
 - `index.html`: the page, the review, the lessons (`coachMove()`), the trainer.
 - `train.js`: clock analysis, puzzles, your openings, offline and install, deep check. It talks to the page only through `window.CL`.

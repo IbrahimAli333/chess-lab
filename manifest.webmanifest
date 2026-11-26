@@ -1,5 +1,5 @@
 {
-  "name": "Ibrahim Ali's Chess Lab",
+  "name": "Chess Lab",
   "short_name": "Chess Lab",
   "description": "Review your chess.com games with Stockfish, solve puzzles from your own mistakes, and drill your openings.",
   "start_url": "./#review",
