@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ibrahim Ali's Chess Lab</title>
+<title>Chess Lab</title>
 <meta name="theme-color" content="#22301F">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -187,7 +187,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 .pzn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:#A5D86A;color:#1C1B19;font-size:12px;font-weight:800}
 .ok.lt{background:#B5E08C}.ok.dk{background:#7FB04A}.no.lt{background:#F4B3A8}.no.dk{background:#D9776A}
 .pzi{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
-.pzi:last-child{border-bottom:0}.pzi b{font-weight:600}.pzi span{color:var(--muted);white-space:nowrap}
+.pzi:last-child{border-bottom:0}.pzi b{font-weight:600}.pzi>span{color:var(--muted);white-space:nowrap}
 .clk{position:relative;height:96px;border-radius:10px;background:var(--soft);overflow:hidden;margin:4px 0 10px}
 .clk svg{position:absolute;inset:0;width:100%;height:100%}
 .clk .cb{cursor:pointer}
@@ -216,7 +216,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <body>
 <header class="top">
 <div class="bar"><div class="wrapc">
-<h1><span class="bl">Ibrahim Ali's </span>chess lab</h1>
+<h1 id="brand">Chess lab</h1>
 <nav class="tabs" aria-label="Sections"><a href="#review" data-tab="review" aria-current="page">Review</a><a href="#puzzles" data-tab="puzzles">Puzzles<span class="pzn" id="pzTabN" hidden></span></a><a href="#openings" data-tab="openings">Openings</a><a href="#progress" data-tab="progress">Progress</a></nav>
 <button id="newBtn" type="button" aria-expanded="true" aria-controls="loader" aria-label="Load a game">Load<span class="lg"> a game</span></button>
 </div></div>
@@ -230,7 +230,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <div class="lgrid">
 <div>
 <h3>Your recent chess.com games</h3>
-<div class="urow"><label for="uname">Username</label><input id="uname" type="text" value="ibrahimaliKH" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="ccBtn" type="button">Refresh</button></div>
+<div class="urow"><label for="uname">Username</label><input id="uname" type="text" value="" placeholder="your chess.com username" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="ccBtn" type="button">Refresh</button></div>
 <p id="ccMsg" class="mut sm" aria-live="polite"></p>
 <div id="ccList" class="hist"></div>
 </div>
@@ -366,9 +366,18 @@ while(V===v&&v.uci.length<20&&!v.over){const best=await new Promise(res=>{lineW.
 if(!best||best==='(none)')break;const before=v.uci.length;v.uci.push(best);buildV(v);if(v.uci.length===before)break;if(V===v)draw()}}catch(e){}
 v.loading=false;if(V===v)draw()}
 $('note').addEventListener('click',e=>{if(e.target.closest('#lineBtn')){showLine(i);return}if(e.target.closest('#backBtn')){V=null;draw();return}const b=e.target.closest('[data-vi]');if(b&&V){V.vi=+b.dataset.vi;draw()}});
-let uname='ibrahimaliKH';try{uname=localStorage.getItem('ccr-user')||uname}catch(e){}
+// The site owner's own setup. Everyone else gets a neutral site that uses their own chess.com username.
+const OWNER={user:'ibrahimalikh',name:'Ibrahim Ali',level:'a club player rated about 1100 to 1200 in rapid on chess.com'};
+let uname='';try{uname=localStorage.getItem('ccr-user')||''}catch(e){}
+// no username saved yet: take it from the games already reviewed in this browser, so existing setups keep working
+if(!uname){try{const lh=JSON.parse(localStorage.getItem('ccr-games')||'[]');const d=Array.isArray(lh)&&lh.find(x=>x&&x.white&&x.black&&x.me);if(d){uname=d.me==='b'?d.black:d.white;localStorage.setItem('ccr-user',uname)}}catch(e){}}
+const isOwner=()=>uname.toLowerCase()===OWNER.user;
+let SITE='Chess Lab';
+function brand(){SITE=isOwner()?OWNER.name+"'s Chess Lab":'Chess Lab';$('brand').innerHTML=isOwner()?'<span class="bl">'+esc(OWNER.name)+"'s </span>chess lab":'Chess lab';const t=document.title.split(' | ');document.title=(t.length>1?t[0]+' | ':'')+SITE}
+brand();
 $('uname').value=uname;
-$('uname').addEventListener('change',()=>{uname=$('uname').value.trim();try{localStorage.setItem('ccr-user',uname)}catch(e){}});
+$('uname').addEventListener('change',()=>{uname=$('uname').value.trim();try{localStorage.setItem('ccr-user',uname)}catch(e){}brand();
+if(G&&uname){const u=uname.toLowerCase();if(G.black.toLowerCase()===u||G.white.toLowerCase()===u){G.me=G.black.toLowerCase()===u?'b':'w';panel();draw()}}if(uname)loadCC()});
 
 function parsePGN(text){
 const H={};text.replace(/\[(\w+)\s+"([^"]*)"\]/g,(m,k,v)=>{H[k]=v;return''});
@@ -894,7 +903,8 @@ if(mine&&['inaccuracy','mistake','miss','blunder','brilliant','great'].includes(
 if(BAD.includes(c))coachLines(G,k).forEach((t,j)=>lines.push('   '+(j?'':'What went wrong: ')+t))}
 if(!mine&&['mistake','blunder'].includes(c))lines.push('Opponent '+Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c)}
 let mv='';G.san.forEach((s,k)=>{mv+=(k%2===0?(k/2+1)+'. ':'')+s+' '});
-const prompt='You are a friendly, direct chess coach for Ibrahim Ali, a club player rated about 1100 to 1200 in rapid on chess.com. He played '+meC+' in this game. Result: '+G.result+'. Opening: '+G.opening+'.\n\nMoves: '+mv.trim()+'\n\nStockfish ratings of the key moves (evals in pawns from his side, positive is good for him). The indented lines under each mistake were checked on the board by the site: what went wrong, the line the opponent can play, the engine line instead, and a habit:\n'+(lines.join('\n')||'No inaccuracies or worse from him.')+'\n\nHis mistakes by theme: '+(themeSummary(G).map(t=>t.label+' '+t.n+' ('+t.moves.map(m=>Math.ceil(m.k/2)+(m.k%2?'. ':'... ')+m.san).join(', ')+')').join('; ')||'none')+'.\n\nAccuracy: him '+(acc(G.me)||0).toFixed(1)+', opponent '+(acc(G.me==='w'?'b':'w')||0).toFixed(1)+'.\n\nWrite his review in plain text with these four short sections, each starting with its title on its own line:\nVerdict (one sentence)\nWhat went well (2 points)\nBiggest mistakes (up to 3: the move, why it was a problem in simple words, and the habit that would have caught it)\nPractice this week (2 or 3 concrete tasks, like a puzzle theme or an opening line)\nRules: rely only on the engine data and the checked lines above and do not invent concrete variations you are not sure of. Use simple language. Never use em dashes. Use hyphen bullets. Under 230 words.';
+const myName=G.me==='w'?G.white:G.black,myElo=G.me==='w'?G.welo:G.belo,who=isOwner()?OWNER.name:myName,level=isOwner()?OWNER.level:(myElo?'a chess.com player rated '+myElo+' in this game':'a club player on chess.com');
+const prompt='You are a friendly, direct chess coach for '+who+', '+level+'. '+who+' played '+meC+' in this game. Result: '+G.result+'. Opening: '+G.opening+'.\n\nMoves: '+mv.trim()+'\n\nStockfish ratings of the key moves (evals in pawns from '+who+'\'s side, positive is good for '+who+'). The indented lines under each mistake were checked on the board by the site: what went wrong, the line the opponent can play, the engine line instead, and a habit:\n'+(lines.join('\n')||'No inaccuracies or worse from '+who+'.')+'\n\n'+who+'\'s mistakes by theme: '+(themeSummary(G).map(t=>t.label+' '+t.n+' ('+t.moves.map(m=>Math.ceil(m.k/2)+(m.k%2?'. ':'... ')+m.san).join(', ')+')').join('; ')||'none')+'.\n\nAccuracy: '+who+' '+(acc(G.me)||0).toFixed(1)+', opponent '+(acc(G.me==='w'?'b':'w')||0).toFixed(1)+'.\n\nWrite the review for '+who+', speaking to them as you, in plain text with these four short sections, each starting with its title on its own line:\nVerdict (one sentence)\nWhat went well (2 points)\nBiggest mistakes (up to 3: the move, why it was a problem in simple words, and the habit that would have caught it)\nPractice this week (2 or 3 concrete tasks, like a puzzle theme or an opening line)\nRules: rely only on the engine data and the checked lines above and do not invent concrete variations you are not sure of. Use simple language. Never use em dashes. Use hyphen bullets. Under 230 words.';
 try{await navigator.clipboard.writeText(prompt);$('coach').textContent='Copied. Open Claude, paste it into a chat, and send.'}catch(e){$('coach').innerHTML='<p style="margin:0 0 6px">Copy this text and paste it into Claude:</p><textarea readonly style="min-height:160px">'+esc(prompt)+'</textarea>'}});
 
 $('ml').addEventListener('click',e=>{const b=e.target.closest('.mb');if(b){V=null;i=+b.dataset.i;draw()}});
@@ -915,7 +925,7 @@ function stab(t){STABS.forEach(x=>{$('st-'+x).setAttribute('aria-selected',x===t
 STABS.forEach(x=>{$('st-'+x).onclick=()=>stab(x)});
 // top-level tabs follow the address hash, so the back button and links work
 const TABS=['review','puzzles','openings','progress'];
-function show(t){if(!TABS.includes(t))t='review';TABS.forEach(x=>{$(x).hidden=x!==t});document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.tab===t)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=(t==='review'?'':t[0].toUpperCase()+t.slice(1)+' | ')+"Ibrahim Ali's Chess Lab";if(t==='review')draw()}
+function show(t){if(!TABS.includes(t))t='review';TABS.forEach(x=>{$(x).hidden=x!==t});document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.tab===t)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=(t==='review'?'':t[0].toUpperCase()+t.slice(1)+' | ')+SITE;if(t==='review')draw()}
 function go(t){show(t);if(location.hash.slice(1)!==t&&(location.hash||t!=='review'))location.hash=t}
 document.querySelector('.tabs').addEventListener('click',e=>{const a=e.target.closest('a');if(a){show(a.dataset.tab);window.scrollTo(0,0)}});
 window.addEventListener('hashchange',()=>{const t=location.hash.slice(1);if(TABS.includes(t)&&$(t).hidden){show(t);window.scrollTo(0,0)}});
@@ -938,8 +948,8 @@ const LINES=[
 {id:'french-adv',g:'French, as Black',name:'Advance: 3.e5',side:'b',mv:'e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 Bd3 cxd4 cxd4 Bd7 O-O Nxd4 Nxd4 Qxd4',n:{1:'The French: prepare ...d5.',3:'Challenge the center right away.',4:'White pushes past and grabs space.',5:'Strike at the base of the pawn chain.',7:'Add a second attacker on d4.',9:'Third attacker on d4, and the queen eyes b2.',11:'Release the tension at the right moment.',13:'Careful here: not ...Nxd4 yet, because Nxd4 Qxd4 Bb5+ wins your queen. Cover b5 first.',15:'Now it is safe to take.',17:'A pawn up. White gets activity for it, so finish your development quickly.'}},
 {id:'french-exch',g:'French, as Black',name:'Exchange: 3.exd5',side:'b',mv:'e4 e6 d4 d5 exd5 exd5 Nf3 Nf6 Bd3 Bd6 O-O O-O Bg5 Bg4',n:{1:'The French: prepare ...d5.',3:'Challenge the center.',5:'Recapture. The position is symmetrical and solid.',7:'Develop.',9:'Mirror White: bishop to d6.',11:'Castle.',13:'Pin the f3 knight, the same idea as White\'s Bg5.'}},
 {id:'french-classical',g:'French, as Black',name:'Classical: 3.Nc3',side:'b',mv:'e4 e6 d4 d5 Nc3 Nf6 Bg5 Be7 e5 Nfd7 Bxe7 Qxe7 f4 O-O Nf3 c5',n:{1:'The French: prepare ...d5.',3:'Challenge the center.',5:'Develop and attack e4 again.',7:'Break the pin.',9:'Retreat. The knight supports ...c5 later.',11:'Recapture with the queen.',13:'Castle.',15:'The key French break: attack d4.'}},
-{id:'french-f4',g:'French, as Black',name:'2.f4, your daily game',side:'b',mv:'e4 e6 f4 d5 e5 c5 Nf3 Nc6 c3 Nh6 d4 Qb6',n:{1:'The French.',2:'This is what DhruvH played against you.',3:'Hit the center.',5:'Same plan as always: attack the base of the chain.',7:'More pressure on d4.',9:'The knight heads to f5, where it eyes d4 and e3.',11:'Pressure on d4 and b2.'}},
-{id:'french-bc4',g:'French, as Black',name:'2.Bc4, today\'s win',side:'b',mv:'e4 e6 Bc4 d5 exd5 exd5 Bb3 Nf6 Nf3 Bd6 O-O O-O d4 h6',n:{1:'The French.',2:'What belenski94 played today.',3:'Attack the bishop with a center pawn: a free tempo.',5:'Recapture.',7:'Develop.',9:'Develop.',11:'Castle.',13:'Stop Bg5 pins before they happen.'}},
+{id:'french-f4',g:'French, as Black',name:isOwner()?'2.f4, your daily game':'Against 2.f4',side:'b',mv:'e4 e6 f4 d5 e5 c5 Nf3 Nc6 c3 Nh6 d4 Qb6',n:{1:'The French.',2:isOwner()?'This is what DhruvH played against you.':'White pushes the f-pawn before d4.',3:'Hit the center.',5:'Same plan as always: attack the base of the chain.',7:'More pressure on d4.',9:'The knight heads to f5, where it eyes d4 and e3.',11:'Pressure on d4 and b2.'}},
+{id:'french-bc4',g:'French, as Black',name:isOwner()?'2.Bc4, today\'s win':'Against 2.Bc4',side:'b',mv:'e4 e6 Bc4 d5 exd5 exd5 Bb3 Nf6 Nf3 Bd6 O-O O-O d4 h6',n:{1:'The French.',2:isOwner()?'What belenski94 played today.':'White develops the bishop before playing d4.',3:'Attack the bishop with a center pawn: a free tempo.',5:'Recapture.',7:'Develop.',9:'Develop.',11:'Castle.',13:'Stop Bg5 pins before they happen.'}},
 {id:'qgd',g:'Against 1.d4, as Black',name:'Queen\'s Gambit Declined',side:'b',mv:'d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 b6',n:{1:'Meet d4 with d5.',3:'Decline the gambit and hold d5 with a pawn.',5:'Develop.',7:'Break the pin.',9:'Castle.',11:'Ask the bishop what it wants.',13:'Plan ...Bb7. Solid and active.'}},
 {id:'london',g:'Against 1.d4, as Black',name:'Against the London',side:'b',mv:'d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O',n:{1:'Meet d4 with d5.',3:'Develop.',5:'Open the way for your bishop.',7:'Hit the center before White builds up.',9:'More pressure on d4.',11:'Challenge White\'s best bishop.',13:'Castle. An equal, comfortable game.'}}
 ];
@@ -985,7 +995,7 @@ let CC=[];
 const ccRes=p=>p.result==='win'?'W':['agreed','repetition','stalemate','insufficient','50move','timevsinsufficient'].includes(p.result)?'D':'L';
 function renderCC(){const u=($('uname').value||'').trim().toLowerCase();$('ccList').innerHTML=CC.map((g,k)=>{const meW=(g.white.username||'').toLowerCase()===u;const me=meW?g.white:g.black,op=meW?g.black:g.white;const r=ccRes(me);const col=r==='W'?'#3F7A1F':r==='L'?'#C4473A':'#6B6862';const dt=g.end_time?new Date(g.end_time*1000).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
 return '<div class="h"><span class="res" style="background:'+col+'">'+r+'</span><div><div class="t">vs '+esc(op.username||'?')+' ('+esc(op.rating||'')+')</div><div class="m">'+esc(dt)+' · '+esc(g.time_class||'')+' · as '+(meW?'White':'Black')+'</div></div><div class="hb"><button type="button" class="go" data-cc="'+k+'">Review</button></div></div>'}).join('')}
-async function loadCC(){const u=($('uname').value||'').trim().toLowerCase();if(!u){$('ccMsg').textContent='Enter your username first.';return}$('ccMsg').textContent='Loading your games...';
+async function loadCC(){const u=($('uname').value||'').trim().toLowerCase();if(!u){$('ccMsg').textContent='Type your chess.com username above and press Refresh to see your recent games.';return}$('ccMsg').textContent='Loading your games...';
 try{const a=await(await fetch('https://api.chess.com/pub/player/'+encodeURIComponent(u)+'/games/archives')).json();const arch=(a.archives||[]).slice(-3).reverse();let games=[];
 for(const url of arch){const r=await(await fetch(url)).json();games=games.concat((r.games||[]).filter(g=>g.pgn&&(!g.rules||g.rules==='chess')).reverse());if(games.length>=30)break}
 CC=games.slice(0,30);$('ccMsg').textContent=CC.length?'Your last '+CC.length+' games. Tap one to review it.':'No recent games found for '+u+'.';renderCC()}

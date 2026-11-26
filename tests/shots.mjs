@@ -18,6 +18,7 @@ const browser = await chromium.launch();
 const open = async (viewport, mobile, saved) => {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, isMobile: mobile, hasTouch: mobile });
   const page = await ctx.newPage();
+  await page.addInitScript(() => { try { if (!localStorage.getItem('ccr-user')) localStorage.setItem('ccr-user', 'ibrahimaliKH'); } catch (e) {} });
   await mockChessCom(page);
   if (saved) await page.addInitScript(s => { try { localStorage.setItem('ccr-games', s); } catch (e) {} }, saved);
   await page.goto(local.url);

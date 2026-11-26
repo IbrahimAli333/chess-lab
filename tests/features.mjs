@@ -20,6 +20,7 @@ const { Chess } = await import(path.join(HERE, '..', 'chess.js'));
 const local = await serve();
 const browser = await chromium.launch({ headless: !flag('headed') });
 const ctx = await browser.newContext({ viewport: { width: 1366, height: 800 }, acceptDownloads: true });
+await ctx.addInitScript(() => { try { if (!localStorage.getItem('ccr-user')) localStorage.setItem('ccr-user', 'ibrahimaliKH'); } catch (e) {} });
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(String(e)));
@@ -49,6 +50,38 @@ check(/mistakes/.test(cb.text) && cb.links.length > 0, 'clock facts name your mi
 await page.click('#clockBox .facts [data-i="' + cb.links[0] + '"]');
 const lab = await page.textContent('#mvLab');
 check(lab.startsWith(Math.ceil(cb.links[0] / 2) + (cb.links[0] % 2 ? '. ' : '... ')), 'a move in the clock facts jumps to that move', lab);
+
+// ---- 1b. Shared with a friend: a neutral site that uses their own username ----
+{
+  const fctx = await browser.newContext({ viewport: { width: 1366, height: 800 } });
+  await fctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: local.url.replace(/\/$/, '') });
+  const fp = await fctx.newPage();
+  fp.on('pageerror', e => errors.push('friend page: ' + String(e)));
+  await mockChessCom(fp);
+  await fp.goto(local.url);
+  await fp.waitForTimeout(900);
+  const first = await fp.evaluate(() => ({ user: document.getElementById('uname').value, ph: document.getElementById('uname').placeholder, h1: document.getElementById('brand').textContent, title: document.title, msg: document.getElementById('ccMsg').textContent, lines: document.getElementById('lines').innerText }));
+  check(first.user === '' && /username/.test(first.ph) && /Type your chess.com username/.test(first.msg), 'a first visit starts with an empty username box and asks for it', first.msg);
+  check(first.h1 === 'Chess lab' && first.title === 'Chess Lab', 'a first visit shows a neutral title', first.h1 + ' / ' + first.title);
+  check(!/Ibrahim|daily game|today's win/.test(first.lines + first.h1) && /Against 2\.f4/.test(first.lines), 'trainer lines named after the owner\'s games get neutral names');
+  await fp.fill('#uname', 'belenski94'); await fp.press('#uname', 'Enter'); await fp.press('#uname', 'Tab');
+  check(await fp.evaluate(() => localStorage.getItem('ccr-user')) === 'belenski94' && await fp.title() === 'Chess Lab', 'their username is remembered and the site stays neutral');
+  await fp.click('#exBtn');
+  await fp.waitForFunction(() => document.getElementById('ptx').textContent === 'Review complete', null, { timeout: 240000 });
+  await fp.click('#st-sum'); await fp.click('#coachBtn'); await fp.waitForTimeout(300);
+  const clip = await fp.evaluate(() => navigator.clipboard.readText());
+  check(/coach for belenski94, a chess.com player rated 1144/.test(clip) && /belenski94 played White/.test(clip) && !/Ibrahim|1100 to 1200|\b(He|him|his)\b/.test(clip), 'Copy game for Claude describes them, from their side of the game', clip.split('\n')[0].slice(0, 110));
+  await fctx.close();
+  // the owner's browser with games already saved but no username stored keeps its old look
+  const octx0 = await browser.newContext();
+  const o0 = await octx0.newPage();
+  await mockChessCom(o0);
+  await o0.addInitScript(d => { if (!localStorage.getItem('ccr-games')) localStorage.setItem('ccr-games', JSON.stringify([d])); }, longDoc);
+  await o0.goto(local.url); await o0.waitForTimeout(600);
+  const own = await o0.evaluate(() => ({ user: document.getElementById('uname').value, h1: document.getElementById('brand').textContent, lines: document.getElementById('lines').innerText, stored: localStorage.getItem('ccr-user') }));
+  check(own.user === 'ibrahimaliKH' && own.stored === 'ibrahimaliKH' && own.h1 === "Ibrahim Ali's chess lab" && /daily game/.test(own.lines), 'an existing browser with saved games but no stored username keeps the owner setup', own.h1);
+  await octx0.close();
+}
 
 // ---- 2. Your openings ----
 await reviewPgn(WHITE);
@@ -167,9 +200,9 @@ await octx.close();
 // ---- general ----
 for (const t of ['review', 'puzzles', 'openings', 'progress']) {
   await page.click('.tabs a[data-tab=' + t + ']');
-  if (/—/.test(await page.evaluate(() => document.body.innerText))) check(false, 'no em dashes on the ' + t + ' tab');
+  if (/\u2014/.test(await page.evaluate(() => document.body.innerText))) check(false, 'no em dashes on the ' + t + ' tab');
 }
-check(!['train.js', 'sw.js', 'manifest.webmanifest'].some(f => /—/.test(fs.readFileSync(path.join(HERE, '..', f), 'utf8'))), 'no em dashes in train.js, sw.js and the manifest');
+check(!['train.js', 'sw.js', 'manifest.webmanifest'].some(f => /\u2014/.test(fs.readFileSync(path.join(HERE, '..', f), 'utf8'))), 'no em dashes in train.js, sw.js and the manifest');
 check(errors.length === 0, 'no page errors', errors.slice(0, 3).join(' | '));
 
 await browser.close();

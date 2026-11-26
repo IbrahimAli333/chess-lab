@@ -295,7 +295,7 @@ function pzDraw() {
   const tg = P.sel && !P.done ? P.ch.moves({ square: P.sel, verbose: true }).map(m => m.to) : [];
   $('pzBoard').innerHTML = boardHtml(P.ch.fen(), { bottom: P.side, last: P.last, sel: P.sel, targets: tg, hint: P.hintSq, marks: P.marks });
   const mine = Math.ceil(P.sol.length / 2), done = Math.min(mine, Math.ceil(P.step / 2));
-  $('pzStep').textContent = mine > 1 ? 'Move ' + Math.min(done + 1, mine) + ' of ' + mine : '';
+  $('pzStep').textContent = P.done ? 'Solved' : mine > 1 ? 'Move ' + Math.min(done + 1, mine) + ' of ' + mine : '';
 }
 function pzStart(p) {
   const g = gameOf(p.d);
