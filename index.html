@@ -59,7 +59,7 @@ input[type=text]{font:16px Manrope,system-ui,sans-serif;min-height:44px;padding:
 /* review workspace */
 .rgrid{display:flex;flex-direction:column;gap:12px}
 .scol{display:contents}
-.rhead{order:0}.bcol{order:1}.prog-w{order:2}.notebox{order:3}.graph{order:4}.sidetabs{order:5}
+.rhead{order:5}.sidetabs{order:6}.bcol{order:1;width:100%;max-width:max(260px,min(560px,calc(100vh - 300px)));margin:0 auto}.prog-w{order:2}.notebox{order:3}.graph{order:4}
 .rhead{display:flex;justify-content:space-between;align-items:center;gap:8px 12px;flex-wrap:wrap}.rhead h2{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chips{display:flex;gap:8px}
 .chip{background:var(--soft);border-radius:999px;padding:4px 12px;font-size:14px;white-space:nowrap}.chip b{font-weight:800;font-variant-numeric:tabular-nums}
@@ -87,15 +87,15 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;border:1px solid var(--line);bord
 .prog{height:8px;background:var(--soft);border-radius:4px;overflow:hidden}.prog>div{height:100%;width:0;background:#5E9A34;transition:width .3s}
 .notebox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
 .mtools{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.mtools button{min-height:40px;padding:0 12px;font-size:14px}
+.mtools button{padding:0 12px;font-size:14px}
 .mtools span{margin:0 auto;font-size:13px;color:var(--muted);text-align:center}
 .note{font-size:15px;min-height:64px}
 .lab{display:flex;align-items:center;gap:8px}
 .why{margin:0;font-weight:600}
 .evl{color:var(--muted);font-size:14px}
 .nh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 12px}
-.lnb{min-height:40px;padding:0 12px;font-size:14px;margin-top:6px}
-.lesson{margin:10px 0 0;display:grid;gap:10px}
+.lnb{padding:0 12px;font-size:14px;margin-top:6px}
+.lesson{margin:8px 0 0;display:grid;gap:8px}
 .lesson dt{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .lesson dd{margin:2px 0 0}
 .sanl{font-weight:600;font-variant-numeric:tabular-nums}
@@ -109,6 +109,7 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;border:1px solid var(--line);bord
 .stabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);margin-bottom:10px}
 .stabs button{flex:1;border:0;border-radius:0;font-size:14px;padding:0 8px;background:transparent}
 .stabs button[aria-selected=true]{background:var(--sel)}
+.stabs button:focus-visible,.seg button:focus-visible{outline-offset:-3px}
 .spanel>.panel+.panel{margin-top:12px}
 .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .card{background:var(--soft);border-radius:12px;padding:12px 14px}
@@ -133,14 +134,14 @@ kbd{font:600 12px ui-monospace,Menlo,monospace;border:1px solid var(--line);bord
 .tip{font-size:14px;color:var(--muted)}
 @media(min-width:960px){
 .rgrid{display:grid;grid-template-columns:calc(var(--bs) + 24px) minmax(0,1fr);gap:24px;align-items:start}
-.bcol{position:sticky;top:calc(var(--hdr) + 12px);order:0}
+.bcol{position:sticky;top:calc(var(--hdr) + 12px);order:0;max-width:none;margin:0}
 .scol{display:flex;flex-direction:column;gap:10px}
 .keys{display:block}
 }
 /* laptop: the whole review fits one screen, the lists scroll inside the right column */
 @media(min-width:960px) and (min-height:600px){
 .scol{height:calc(100vh - var(--hdr) - 30px);min-height:0}
-.notebox{flex:0 1 auto;min-height:120px;max-height:56%;overflow-y:auto}
+.notebox{flex:0 1 auto;min-height:120px;max-height:calc(100% - 270px);overflow-y:auto}
 .sidetabs{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
 .spanel{flex:1 1 0;min-height:0;overflow-y:auto}
 .ml{max-height:none;overflow:visible}
@@ -169,8 +170,8 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 .grp{font-size:13px;color:var(--muted);font-weight:600;margin:14px 0 6px}
 .ln{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;margin:0 0 6px;text-align:left}
 .ln.on{border-color:#5E9A34;background:var(--sel)}
-.vline{line-height:2.6;margin:6px 0}.vm{min-height:36px;min-width:36px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
-.ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}
+.vline{line-height:3;margin:6px 0}.vm{min-height:44px;min-width:44px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
+.ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}.ln.on small{color:var(--ink)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 .pc-wP{background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PHBhdGggZD0iTTIyLjUgOWMtMi4yMSAwLTQgMS43OS00IDQgMCAuODkuMjkgMS43MS43OCAyLjM4QzE3LjMzIDE2LjUgMTYgMTguNTkgMTYgMjFjMCAyLjAzLjk0IDMuODQgMi40MSA1LjAzLTMgMS4wNi03LjQxIDUuNTUtNy40MSAxMy40N2gyM2MwLTcuOTItNC40MS0xMi40MS03LjQxLTEzLjQ3IDEuNDctMS4xOSAyLjQxLTMgMi40MS01LjAzIDAtMi40MS0xLjMzLTQuNS0zLjI4LTUuNjIuNDktLjY3Ljc4LTEuNDkuNzgtMi4zOCAwLTIuMjEtMS43OS00LTQtNHoiIGZpbGw9IiNmZmYiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==');}
 .pc-wB{background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0NSIgaGVpZ2h0PSI0NSI+PGcgZmlsbD0ibm9uZSIgZmlsbC1ydWxlPSJldmVub2RkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxnIGZpbGw9IiNmZmYiIHN0cm9rZS1saW5lY2FwPSJidXR0Ij48cGF0aCBkPSJNOSAzNmMzLjM5LS45NyAxMC4xMS40MyAxMy41LTIgMy4zOSAyLjQzIDEwLjExIDEuMDMgMTMuNSAyIDAgMCAxLjY1LjU0IDMgMi0uNjguOTctMS42NS45OS0zIC41LTMuMzktLjk3LTEwLjExLjQ2LTEzLjUtMS0zLjM5IDEuNDYtMTAuMTEuMDMtMTMuNSAxLTEuMzU0LjQ5LTIuMzIzLjQ3LTMtLjUgMS4zNTQtMS45NCAzLTIgMy0yeiIvPjxwYXRoIGQ9Ik0xNSAzMmMyLjUgMi41IDEyLjUgMi41IDE1IDAgLjUtMS41IDAtMiAwLTIgMC0yLjUtMi41LTQtMi41LTQgNS41LTEuNSA2LTExLjUtNS0xNS41LTExIDQtMTAuNSAxNC01IDE1LjUgMCAwLTIuNSAxLjUtMi41IDQgMCAwLS41LjUgMCAyeiIvPjxwYXRoIGQ9Ik0yNSA4YTIuNSAyLjUgMCAxIDEtNSAwIDIuNSAyLjUgMCAxIDEgNSAweiIvPjwvZz48cGF0aCBkPSJNMTcuNSAyNmgxME0xNSAzMGgxNW0tNy41LTE0LjV2NU0yMCAxOGg1IiBzdHJva2UtbGluZWpvaW49Im1pdGVyIi8+PC9nPjwvc3ZnPg==');}
@@ -294,6 +295,7 @@ const EXAMPLE="[Event \"Live Chess\"]\n[Site \"Chess.com\"]\n[Date \"2026.11.25\
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const C={brilliant:["Brilliant","#26C2A3","!!"],great:["Great","#749BBF","!"],best:["Best","#81B64C","★"],excellent:["Excellent","#96BC4B","✓✓"],good:["Good","#95B776","✓"],book:["Book","#A88865","B"],inaccuracy:["Inaccuracy","#E8B528","?!"],mistake:["Mistake","#FF9B45","?"],miss:["Miss","#FF6B5E","✕"],blunder:["Blunder","#FA412D","??"]};
+const IS={brilliant:'is brilliant',great:'is a great move',best:'is the best move',excellent:'is excellent',good:'is good',book:'is a book move',inaccuracy:'is an inaccuracy',mistake:'is a mistake',miss:'is a miss',blunder:'is a blunder'};
 const ORDER=["brilliant","great","best","excellent","good","book","inaccuracy","mistake","miss","blunder"];
 const VAL={p:1,n:3,b:3,r:5,q:9,k:0};
 const wpW=cp=>1/(1+Math.exp(-0.00368208*cp));
@@ -386,7 +388,7 @@ if(V0){$('mvLab').textContent='Best line';lineNote();return}
 let n;if(!i)n='<b>Start of the game.</b> Step through with the arrows, tap any move, or use the Mistake buttons to jump between your mistakes.';
 else{const c=G.cls[i];const mine=(i%2===1)===(G.me==='w');const who=mine?'You':'Your opponent';
 if(c){const me=v=>fmt(G.me==='w'?v:-v),L=BAD.includes(c)?coachMove(G,i):null,bs=!['best','great','brilliant','book'].includes(c)&&G.best[i-1]?sanOf(i-1,G.best[i-1]):'';
-n='<div class="nh"><span class="lab"><b>'+badge(c)+' '+esc(mlab(i))+' is '+(c==='inaccuracy'?'an ':'a ')+C[c][0].toLowerCase()+'</b></span>'+(G.ev[i]!=null&&G.ev[i-1]!=null?'<span class="evl">Eval for you: '+me(G.ev[i-1])+' to '+me(G.ev[i])+'</span>':'')+'</div>';
+n='<div class="nh"><span class="lab"><b>'+badge(c)+' '+esc(mlab(i))+' '+IS[c]+'</b></span>'+(G.ev[i]!=null&&G.ev[i-1]!=null?'<span class="evl">Eval for you: '+me(G.ev[i-1])+' to '+me(G.ev[i])+'</span>':'')+'</div>';
 if(L&&L.best.length)n+=lessonHtml(L);else if(bs)n+=(L?lessonHtml(L):'')+'<div class="mut" style="margin-top:8px"><span class="arrkey"></span>Best was '+esc(bs)+'</div>'+LINEBTN}
 else n=esc(who)+' played '+esc(G.san[i-1])+'. <span class="mut">Stockfish is still checking this move.</span>'}
 $('note').innerHTML=n;
@@ -866,8 +868,9 @@ STABS.forEach(x=>{$('st-'+x).onclick=()=>stab(x)});
 // top-level tabs follow the address hash, so the back button and links work
 const TABS=['review','openings','progress'];
 function show(t){if(!TABS.includes(t))t='review';TABS.forEach(x=>{$(x).hidden=x!==t});document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.tab===t)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=(t==='review'?'':t[0].toUpperCase()+t.slice(1)+' | ')+"Ibrahim Ali's Chess Lab";if(t==='review')draw()}
-function go(t){if(location.hash.slice(1)===t||(!location.hash&&t==='review'))show(t);else location.hash=t}
-window.addEventListener('hashchange',()=>{show(location.hash.slice(1));window.scrollTo(0,0)});
+function go(t){show(t);if(location.hash.slice(1)!==t&&(location.hash||t!=='review'))location.hash=t}
+document.querySelector('.tabs').addEventListener('click',e=>{const a=e.target.closest('a');if(a){show(a.dataset.tab);window.scrollTo(0,0)}});
+window.addEventListener('hashchange',()=>{const t=location.hash.slice(1);if(TABS.includes(t)&&$(t).hidden){show(t);window.scrollTo(0,0)}});
 function loader(on){$('loader').hidden=!on;$('newBtn').setAttribute('aria-expanded',on?'true':'false')}
 $('loadHide').onclick=()=>loader(false);
 $('newBtn').onclick=()=>{const on=$('loader').hidden||$('review').hidden;loader(on);if(on){go('review');window.scrollTo(0,0)}};
