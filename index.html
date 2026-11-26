@@ -267,12 +267,14 @@ function sanOf(k,uci){try{const t=new Chess(G.fens[k]);const m=t.move({from:uci.
 
 // ---- tactics: name the idea behind a move, using chess.js positions ----
 const PN={p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
+const PL={p:'pawns',n:'knights',b:'bishops',r:'rooks',q:'queens'};
 const SV={p:1,n:3,b:3,r:5,q:9,k:100};
 const FL='abcdefgh';
 const DIRS={n:[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]],k:[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]],b:[[1,1],[1,-1],[-1,1],[-1,-1]],r:[[1,0],[-1,0],[0,1],[0,-1]]};
 DIRS.q=DIRS.k;
 const sqOf=(f,r)=>f<0||f>7||r<0||r>7?null:FL[f]+(r+1);
 const xy=s=>[FL.indexOf(s[0]),+s[1]-1];
+const mvU=(ch,u)=>ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});
 // board map {square:{t:type,c:color}} from a FEN
 function bmap(fen){const b={};fen.split(' ')[0].split('/').forEach((row,ri)=>{let f=0;for(const ch of row){if(ch>='1'&&ch<='8')f+=+ch;else{b[FL[f]+(8-ri)]={t:ch.toLowerCase(),c:ch===ch.toLowerCase()?'b':'w'};f++}}});return b}
 // squares along one direction until (and including) the first piece
@@ -290,15 +292,29 @@ const att=attackers(b,to,side).sort((x,y)=>SV[b[x].t]-SV[b[y].t]);if(!att.length
 while(d>0){gain[d-1]=-Math.max(-gain[d-1],gain[d]);d--}return gain[0]}
 // can the piece on sq be taken without losing material?
 function loose(b,sq){const p=b[sq];return attackers(b,sq,p.c==='w'?'b':'w').some(a=>see(b,a,sq)>=0)}
+// the most material the other side wins by capturing the piece on sq right now (0 when it is safe)
+function lossAt(b,sq){const p=b[sq];let w=0;if(!p)return 0;for(const a of attackers(b,sq,p.c==='w'?'b':'w'))w=Math.max(w,see(b,a,sq));return w}
+// squares strictly between two squares on one line ([] when they are not on a line)
+function between(a,z){const [f1,r1]=xy(a),[f2,r2]=xy(z);if(f1!==f2&&r1!==r2&&Math.abs(f1-f2)!==Math.abs(r1-r2))return[];
+const df=Math.sign(f2-f1),dr=Math.sign(r2-r1),o=[];let f=f1+df,r=r1+dr;while(f!==f2||r!==r2){o.push(sqOf(f,r));f+=df;r+=dr}return o}
+// no enemy pawn can stop or capture the pawn on sq on its way to promotion
+function passed(b,sq){const p=b[sq],[f,r]=xy(sq),d=p.c==='w'?1:-1;for(const s in b){const q=b[s];if(q.t!=='p'||q.c===p.c)continue;const [f2,r2]=xy(s);if(Math.abs(f2-f)<=1&&(r2-r)*d>0)return false}return true}
+// material balance in pawns for one colour
+function matBal(b,c){let s=0;for(const q in b){if(b[q].t!=='k')s+=(b[q].c===c?1:-1)*SV[b[q].t]}return s}
+// The piece on sq (its side to move) is attacked and every move it has loses at least two pawns of material.
+function trapped(fen,sq){const b=bmap(fen),p=b[sq];if(!p||!'nbrq'.includes(p.t)||lossAt(b,sq)<2)return false;
+const ch=new Chess(fen);if(ch.turn()!==p.c||ch.in_check())return false;
+for(const m of ch.moves({square:sq,verbose:true})){ch.move(m);const b2=bmap(ch.fen());ch.undo();if(lossAt(b2,m.to)-(m.captured?SV[m.captured]:0)<2)return false}
+return true}
 function joinNames(a){return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1]}
 function backRank(ch){if(!ch.in_checkmate())return false;const b=bmap(ch.fen()),side=ch.turn();let ks=null;for(const s in b)if(b[s].t==='k'&&b[s].c===side)ks=s;
 const [f,r]=xy(ks);if(r!==(side==='w'?0:7))return false;const fr=side==='w'?1:6;
 for(const df of[-1,0,1]){const s=sqOf(f+df,fr);if(s&&!(b[s]&&b[s].c===side))return false}
 return attackers(b,ks,side==='w'?'b':'w').some(a=>(b[a].t==='r'||b[a].t==='q')&&xy(a)[1]===r)}
 // Name the tactic in one move. fen: position before, uci: the move. Returns null or {k:kind,...}
-function tacticOf(fen,uci){const ch=new Chess(fen);const b1=bmap(fen);const m=ch.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||'q'});if(!m)return null;
+function tacticOf(fen,uci){const ch=new Chess(fen);const b1=bmap(fen);const m=mvU(ch,uci);if(!m)return null;
 const b2=bmap(ch.fen()),me=m.color,op=me==='w'?'b':'w',to=m.to,pc=b2[to],san=m.san;
-if(ch.in_checkmate())return{k:backRank(ch)?'backrank':'mate',san};
+if(ch.in_checkmate())return{k:backRank(ch)?'backrank':'mate',san,n:1};
 const safe=!loose(b2,to);
 // win of a piece that is simply hanging
 let cap=null;if(m.captured&&!(m.flags||'').includes('e')){const g=see(b1,m.from,to);if(g>0)cap={k:'hang',san,x:m.captured,sq:to,g,free:attackers(b1,to,op).length===0}}
@@ -321,25 +337,76 @@ const xTakes=reach(b2,xs).includes(to)&&see(b2,xs,to)>=0;
 if(X.t!=='p'&&X.t!=='k'&&!xTakes&&(Y.t==='k'||(SV[Y.t]>SV[X.t]&&SV[Y.t]>SV[pc.t])))return{k:'pin',san,x:X.t,y:Y.t}}}
 return cap}
 // material won by the side to move over the first plies of a line (in pawns)
-function lineGain(fen,ucis,n){const ch=new Chess(fen);const me=ch.turn();let g=0;for(const u of ucis.slice(0,n)){const m=ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});if(!m)break;
+function lineGain(fen,ucis,n){const ch=new Chess(fen);const me=ch.turn();let g=0;for(const u of ucis.slice(0,n)){const m=mvU(ch,u);if(!m)break;
 let v=(m.captured?VAL[m.captured]:0)+(m.promotion?VAL[m.promotion]-1:0);g+=m.color===me?v:-v}return g}
 // what the side to move wins over the first plies of a line, in words ('' if nothing)
-function lineWins(fen,ucis){const n=ucis.length<2?ucis.length:Math.min(8,ucis.length-ucis.length%2);const g=Math.min(lineGain(fen,ucis,n),n>6?Math.max(lineGain(fen,ucis,6),1):99);if(g<1||lineGain(fen,ucis,n)<1)return'';
-const ch=new Chess(fen),me=ch.turn();let rook=false,minor=false;for(const u of ucis.slice(0,n)){const m=ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});if(!m)break;if(m.captured==='r'&&m.color===me)rook=true;if((m.captured==='n'||m.captured==='b')&&m.color!==me)minor=true}
-return g===1?'a pawn':g===2?(rook&&minor?'the exchange':'two pawns'):g<5?'a piece':g===5?'a rook':g>=9?'the queen':'a lot of material'}
-// look for a tactic by the side to move on the first or second move of an engine line
-function scanLine(fen,ucis,mating){if(!ucis.length)return null;const ch=new Chess(fen);const sans=[];let fens=[fen];
-for(const u of ucis){const m=ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});if(!m)break;sans.push(m.san);fens.push(ch.fen())}
-if(!sans.length)return null;
-if(ch.in_checkmate()&&sans.length%2===1){const n=(sans.length+1)/2;return{k:backRank(ch)?'backrank':'mate',san:sans[0],n}}
-if(mating)return{k:'mate',san:sans[0],n:0};
-const wins=lineGain(fen,ucis,8)>=1||lineGain(fen,ucis,6)>=1;
-for(const j of[0,2]){if(j>=sans.length)break;const t=tacticOf(fens[j],ucis[j]);if(!t)continue;
-if(!wins&&(j>0||t.k!=='hang'))continue;if(j)t.lead=sans[0];return t}
+// owed: material the move before the line just captured, so that winning it back does not count
+function lineWins(fen,ucis,owed){const n=ucis.length<2?ucis.length:Math.min(8,ucis.length-ucis.length%2),o=owed||0,gn=lineGain(fen,ucis,n)-o;const g=Math.min(gn,n>6?Math.max(lineGain(fen,ucis,6)-o,1):99);const N=Math.min(ucis.length,12);if(g<1||gn<1||(g<2&&Math.max(lineGain(fen,ucis,N),lineGain(fen,ucis,N-N%2))-o<1))return'';
+const ch=new Chess(fen),me=ch.turn(),won=[],lost=[];let promo=false;for(const u of ucis.slice(0,n)){const m=mvU(ch,u);if(!m)break;if(m.promotion)promo=true;if(m.captured)(m.color===me?won:lost).push(m.captured)}
+const A={p:'a pawn',n:'a knight',b:'a bishop',r:'a rook',q:'the queen'};
+if(!promo&&!o&&!lost.length){if(won.length===1)return A[won[0]];if(won.every(x=>x==='p'))return won.length===2?'two pawns':'several pawns';if(won.length===2)return A[won[0]]+' and '+A[won[1]]}
+if(!promo&&!o&&won.length===1&&lost.length===1&&won[0]==='r'&&(lost[0]==='n'||lost[0]==='b'))return'the exchange';
+if(!promo&&!o&&g===3&&won.concat(lost).every(x=>x==='n'||x==='b'))return'a piece';
+return g===1?'a pawn':'material'}
+// play a line of UCI moves from a FEN and keep every move and position (stops at the first illegal move)
+function playLine(fen,ucis){const ch=new Chess(fen),L={mv:[],u:[],fens:[fen]};for(const u of ucis.slice(0,20)){const m=mvU(ch,u);if(!m)break;L.mv.push(m);L.u.push(u);L.fens.push(ch.fen())}L.mate=ch.in_checkmate();return L}
+// material won by the side that makes the first move of a played line, over its first n plies
+function gainOf(L,n){let g=0;L.mv.slice(0,n).forEach((m,j)=>{const v=(m.captured?VAL[m.captured]:0)+(m.promotion?VAL[m.promotion]-1:0);g+=j%2?-v:v});return g}
+// Material won by the first mover once the capture at ply j and any captures that answer it are over.
+function settled(L,j){let e=j+2;if(L.mv[j+1]&&L.mv[j+1].captured)while(L.mv[e]&&L.mv[e].captured&&L.mv[e].to===L.mv[e-1].to)e++;return gainOf(L,e)-gainOf(L,j)}
+// Three-move ideas against a defender. The line goes m0, m1, m2 and m2 wins a piece that was defended at the start:
+//   removal:  m0 captures the defender
+//   overload: m0 captures something else and the defender has to take back, leaving its other job
+//   deflect:  m0 is a sacrifice or a check that pulls the defender away
+function lineMotif(L){const m=L.mv;if(m.length<3)return null;const m0=m[0],m1=m[1],m2=m[2],me=m0.color;
+if(!m2.captured||m2.flags.includes('e'))return null;
+const b0=bmap(L.fens[0]),b2=bmap(L.fens[2]),x=m2.to,X=b2[x],A=b0[m2.from];
+if(!X||!A||A.t!==m2.piece||A.c!==me||!b0[x]||b0[x].t!==X.t||b0[x].c!==X.c)return null;
+if(!reach(b0,m2.from).includes(x)||see(b0,m2.from,x)>0)return null;
+const g2=see(b2,m2.from,x);if(g2<=0||gainOf(L,Math.min(4,m.length))<1)return null;
+const base={san:m0.san,x:X.t,sq:x,then:m2.san,all:g2>=SV[X.t]};
+if(m0.captured&&!m0.flags.includes('e')){const D=b0[m0.to];if(D&&D.c!==me&&m0.to!==x&&reach(b0,m0.to).includes(x))return Object.assign(base,{k:'removal',d:D.t})}
+const D=b0[m1.from];if(D&&D.c!==me&&m1.from!==x&&reach(b0,m1.from).includes(x)&&!reach(b2,m1.to).includes(x)){
+if(m1.to===m0.to)return Object.assign(base,{k:m0.captured?'overload':'deflect',d:D.t,re:m1.san});
+if(m0.san.includes('+'))return Object.assign(base,{k:'deflect',d:D.t,re:m1.san})}
 return null}
-// one short sentence about a tactic. allowed=true: the mover let it happen; false: the mover missed it
-function tacticText(t,allowed,mine){const V=allowed?(mine?'your':'their'):'the';const who=mine?'You':'Your opponent';
+// The move at ply j of a line attacks a piece that has no safe square, and the line goes on to win it.
+function trapMotif(L,j){const m0=L.mv[j];if(!m0)return null;const me=m0.color,b1=bmap(L.fens[j]),fen2=L.fens[j+1],b2=bmap(fen2);
+if(gainOf(L,j+8)<2&&gainOf(L,j+6)<2)return null;
+for(const s in b2){const P=b2[s];if(P.c===me||!'nbrq'.includes(P.t)||lossAt(b2,s)<2)continue;
+if(b1[s]&&b1[s].t===P.t&&b1[s].c===P.c&&lossAt(b1,s)>=2)continue;
+if(!trapped(fen2,s))continue;
+let ps=s,won=false;for(let q=j+1;q<Math.min(L.mv.length,j+8);q++){const m=L.mv[q];if(m.color===me){if(m.to===ps&&m.captured){won=true;break}}else if(m.from===ps)ps=m.to}
+if(won)return{k:'trap',san:m0.san,x:P.t,sq:s}}
+return null}
+// A pawn of the side to move promotes within the first plies of the line and stays on the board.
+function promoMotif(L){for(let j=0;j<Math.min(L.mv.length,9);j+=2){const m=L.mv[j];if(!m.promotion)continue;
+if(lossAt(bmap(L.fens[j+1]),m.to)>0||gainOf(L,Math.min(L.mv.length,j+2))<5)return null;
+return{k:'promo',san:L.mv[0].san,n:j/2+1,file:m.from[0]}}
+return null}
+// The first move of the line pushes a safe passed pawn to the sixth or seventh rank.
+function passerMotif(L){const m=L.mv[0];if(!m||m.piece!=='p'||m.promotion)return null;const b=bmap(L.fens[1]),r=xy(m.to)[1],rel=m.color==='w'?r:7-r;
+if(rel<5||!passed(b,m.to)||lossAt(b,m.to)>0)return null;return{k:'passer',san:m.san,sq:m.to,left:7-rel}}
+// Look for a tactic by the side to move in an engine line. mating: true or the number of moves when the engine reports a forced mate.
+// owed, osq: material the move before the line just captured and where, so that a plain recapture is not called a win.
+function scanLine(fen,ucis,mating,owed,osq){owed=owed||0;if(!ucis.length)return null;const L=playLine(fen,ucis),n=L.mv.length;if(!n)return null;const san0=L.mv[0].san;
+if(L.mate&&n%2===1)return{k:backRank(new Chess(L.fens[n]))?'backrank':'mate',san:san0,n:(n+1)/2};
+if(mating)return{k:'mate',san:san0,n:typeof mating==='number'&&mating<10?mating:0};
+// material must be won within the first plies; a single pawn must still be won a few moves later
+const near=Math.max(gainOf(L,8),gainOf(L,6))-owed,N=Math.min(n,12),wins=near>=2||(near>=1&&Math.max(gainOf(L,N),gainOf(L,N-N%2))-owed>=1);
+let t0=tacticOf(fen,L.u[0]);if(t0&&t0.k==='hang'&&((owed&&t0.sq===osq&&t0.g<=owed)||(n>1&&settled(L,0)-owed<1)))t0=null;
+if(t0&&t0.k==='hang'&&t0.g>=3&&t0.x!=='p')return t0;
+if(wins){const lm=lineMotif(L);if(lm)return lm}
+if(t0&&(wins||t0.k==='hang'))return t0;
+if(wins){const tr=trapMotif(L,0);if(tr)return tr}
+const pm=promoMotif(L);if(pm)return pm;
+if(wins&&n>2){const m1=L.mv[1],t2=tacticOf(L.fens[2],L.u[2]);
+if(t2&&!(t2.k==='hang'&&((m1.captured&&m1.to===t2.sq&&t2.g<=VAL[m1.captured])||(n>3&&settled(L,2)<1)))){t2.lead=san0;return t2}const tr=trapMotif(L,2);if(tr){tr.lead=san0;return tr}}
+return null}
+// A short text about a tactic. allowed=true: the mover let it happen; false: the mover missed it
+function tacticText(t,allowed,mine){const V=allowed?(mine?'your':'their'):'the',O=allowed?(mine?'their':'your'):(mine?'your':'their');const who=mine?'You':'Your opponent';
 const head=(a,rest)=>(allowed?(t.lead?'This allows '+t.lead+' followed by '+a:'This allows '+a):(t.lead?who+' missed '+t.lead+' followed by '+a:who+' missed '+a))+rest;
+const it=t.all?'it':'material',on=' on '+t.sq;
 switch(t.k){
 case'backrank':return head('a back-rank mate',t.n>1?', starting with '+t.san+'.':': '+t.san+' and the king is trapped behind its own pawns.');
 case'mate':return t.n===1?head('checkmate in one',': '+t.san+'.'):head('a forced checkmate',(t.n?' in '+t.n:'')+', starting with '+t.san+'.');
@@ -347,42 +414,185 @@ case'fork':return head((t.by==='q'?'a queen':'a '+PN[t.by])+' fork',': '+t.san+'
 case'pin':return head('a pin',': '+t.san+' pins '+V+' '+PN[t.x]+' to '+V+' '+PN[t.y]+'.');
 case'skewer':return head('a skewer',': '+t.san+' attacks '+V+' '+PN[t.x]+', and the '+PN[t.y]+' behind it falls.');
 case'disc':return t.x==='k'?head('a discovered check',': '+t.san+' opens the '+PN[t.by]+' against '+V+' king.'):head('a discovered attack',': '+t.san+' uncovers the '+PN[t.by]+' against '+V+' '+PN[t.x]+'.');
+case'removal':return(allowed?'This allows ':who+' missed ')+t.san+', which removes the '+PN[t.d]+' that defends '+V+' '+PN[t.x]+on+'. '+t.then+' then wins '+it+'.';
+case'overload':return allowed?'This leaves '+V+' '+PN[t.d]+' with two jobs. After '+t.san+' '+t.re+' it no longer defends '+V+' '+PN[t.x]+on+', and '+t.then+' wins '+it+'.':who+' missed '+t.san+': the '+PN[t.d]+' is overloaded. After '+t.re+' it no longer defends the '+PN[t.x]+on+', and '+t.then+' wins '+it+'.';
+case'deflect':return(allowed?'This allows ':who+' missed ')+t.san+', which pulls '+V+' '+PN[t.d]+' away from '+V+' '+PN[t.x]+on+'. After '+t.re+', '+t.then+' wins '+it+'.';
+case'trap':if(allowed&&t.why==='moved')return'This puts '+V+' '+PN[t.x]+on+' where it gets trapped: '+t.san+' attacks it and it has no safe square.';
+return(allowed?'This allows ':who+' missed ')+(t.lead?t.lead+' followed by ':'')+t.san+', which traps '+V+' '+PN[t.x]+on+': it has no safe square.';
+case'promo':if(allowed)return t.n===1?'This allows '+t.san+', and the pawn promotes.':'This lets '+O+' '+t.file+'-pawn through: it promotes in '+t.n+' moves, starting with '+t.san+'.';
+return t.n===1?who+' missed '+t.san+', which promotes the pawn.':who+' missed '+t.san+': the '+t.file+'-pawn promotes in '+t.n+' moves.';
+case'passer':{const far=(t.left===1?'one square':'two squares')+' from promoting';return allowed?'This lets '+O+' passed pawn reach '+t.sq+', '+far+'.':who+' missed '+t.san+', which puts a passed pawn '+far+'.'}
 case'hang':{const got=t.free||t.g>=SV[t.x]?(allowed?V+' ':'the ')+PN[t.x]:(t.x==='r'&&t.g===2?'the exchange':'material');
 if(t.lead)return(allowed?'This allows ':who+' missed ')+t.lead+' followed by '+t.san+', winning '+got+'.'}
+if(!allowed&&t.why==='recapture')return who+' did not take back'+on+': '+t.san+' wins '+(t.g>=SV[t.x]?'the '+PN[t.x]:'material')+'.';
 if(!allowed)return t.free&&t.x!=='p'?who+' missed a hanging '+PN[t.x]+': '+t.san+' wins it for free.':who+' missed '+t.san+', which wins '+(t.x==='p'?'a pawn':'material')+'.';
-if(t.why==='moved')return t.free?'This leaves '+V+' '+PN[t.x]+' on '+t.sq+' hanging: '+t.san+' wins it for free.':'This puts '+V+' '+PN[t.x]+' on '+t.sq+' where it can be won: '+t.san+'.';
-if(t.why==='guard')return'This stops defending '+V+' '+PN[t.x]+' on '+t.sq+', so '+t.san+' wins it.';
-if(t.why==='ignored')return(mine?'Your ':'Their ')+PN[t.x]+' on '+t.sq+' was under attack and this does not save it: '+t.san+' wins it.';
-return'This leaves '+V+' '+PN[t.x]+' on '+t.sq+' hanging: '+t.san+' wins '+(t.free?'it for free.':'material.')}
+if(t.why==='moved')return t.free?'This puts '+V+' '+PN[t.x]+on+' where nothing defends it: '+t.san+' wins it for free.':'This puts '+V+' '+PN[t.x]+on+' where it can be won: '+t.san+'.';
+if(t.why==='guard')return'This stops defending '+V+' '+PN[t.x]+on+', so '+t.san+' wins it.';
+if(t.why==='ignored')return(mine?'Your ':'Their ')+PN[t.x]+on+' was under attack and this does not save it: '+t.san+' wins it.';
+return'This leaves '+V+' '+PN[t.x]+on+' hanging: '+t.san+' wins '+(t.free?'it for free.':'material.')}
 return''}
-// Why was move k a mistake? One short plain-English sentence, or '' when there is nothing useful to say.
-function explain(k){try{if(!G||!G.vm[k-1]||G.ev[k]==null||G.ev[k-1]==null)return'';
-const mine=(k%2===1)===(G.me==='w'),mw=k%2===1,pov=v=>mw?v:-v,eB=pov(G.ev[k-1]),eA=pov(G.ev[k]),mv=G.vm[k-1];
-if(!G.best[k]){const e=new Chess(G.fens[k]);if(e.in_stalemate())return'This is stalemate, so the game is only a draw.';if(e.in_draw())return'This lets the game end in a draw.'}
-const line=s=>(s||'').split(' ').filter(Boolean);
-let reply=line(G.pv[k]);if(G.best[k]&&reply[0]!==G.best[k])reply=[G.best[k]];
-let bestL=line(G.pv[k-1]);if(G.best[k-1]&&bestL[0]!==G.best[k-1])bestL=[G.best[k-1]];
-const A=scanLine(G.fens[k],reply,eA<=-9000),M=G.best[k-1]&&G.best[k-1]!==G.ucis[k-1]?scanLine(G.fens[k-1],bestL,eB>=9000):null;
-if(A&&A.k==='hang'&&!A.lead){const b0=bmap(G.fens[k-1]),u=reply[0];
+// The same tactic as a short verb phrase, for "Best was X. It ..."
+function tacticWhy(t,opp){if(t.lead)return'sets up '+t.san+' next';const X=opp+' '+PN[t.x]+(t.sq?' on '+t.sq:'');
+switch(t.k){case'backrank':case'mate':return t.n===1?'is checkmate':'starts a forced checkmate';
+case'fork':return'forks '+opp+' '+joinNames(t.tg.map(x=>PN[x]));case'pin':return'pins '+opp+' '+PN[t.x]+' to '+opp+' '+PN[t.y];
+case'skewer':return'skewers '+opp+' '+PN[t.x]+' and '+PN[t.y];case'disc':return t.x==='k'?'gives a discovered check':'uncovers an attack on '+opp+' '+PN[t.x];
+case'removal':return'removes the defender of '+X;case'overload':case'deflect':return'pulls '+opp+' '+PN[t.d]+' away from '+X;
+case'trap':return'traps '+X;case'promo':return t.n===1?'promotes the pawn':'gets a pawn through to promote';case'passer':return'pushes the passed pawn';
+case'hang':return t.free||t.g>=SV[t.x]?'wins '+X:'wins material on '+t.sq}
+return''}
+// What one move does, checked on the board. Returns null or {t:kind,...}. prev: the move played just before it.
+function moveIdea(fen,uci,prev){const ch=new Chess(fen),b1=bmap(fen),m=mvU(ch,uci);if(!m)return null;const b2=bmap(ch.fen()),me=m.color,to=m.to,pc=m.piece,chk=ch.in_check();
+if(ch.in_checkmate())return{t:'mate'};
+if(m.flags.includes('k')||m.flags.includes('q'))return{t:'castle'};
+if(m.promotion)return{t:'promo'};
+if(m.captured){const x=m.captured,g=m.flags.includes('e')?1:see(b1,m.from,to);
+if(prev&&prev.captured&&prev.to===to)return{t:'retake',sq:to,chk};
+if(g>0)return{t:'win',x,sq:to,all:g>=SV[x],chk};
+if(g===0&&SV[x]===SV[pc]&&x!=='p')return{t:'trade',x,y:pc,chk};
+return{t:'take',x,sq:to,chk}}
+if('nbrq'.includes(pc)&&lossAt(b1,m.from)>0&&lossAt(b2,to)===0)return{t:'save',x:pc};
+let sv=null;for(const s in b1){const P=b1[s];if(P.c!==me||s===m.from||P.t==='k'||!b2[s])continue;if(lossAt(b1,s)>0&&lossAt(b2,s)===0&&(!sv||SV[P.t]>SV[b1[sv].t]))sv=s}
+if(sv)return{t:'guard',x:b1[sv].t,sq:sv};
+if(lossAt(b2,to)===0){let at=null;for(const s of reach(b2,to)){const X=b2[s];if(!X||X.c===me||X.t==='k'||X.t==='p')continue;
+if((SV[X.t]>SV[pc]||see(b2,to,s)>0)&&(!at||SV[X.t]>SV[b2[at].t]))at=s}
+if(at)return{t:'attack',x:b2[at].t,sq:at,chk}}
+if(chk)return{t:'check'};
+const home=me==='w'?'1':'8';
+if((pc==='n'&&(m.from==='b'+home||m.from==='g'+home))||(pc==='b'&&(m.from==='c'+home||m.from==='f'+home)))return{t:'develop',x:pc};
+if(pc==='r'&&m.from[0]!==to[0]){let own=0,all=0;for(const s in b2)if(b2[s].t==='p'&&s[0]===to[0]){all++;if(b2[s].c===me)own++}if(!own)return{t:'file',open:!all,f:to[0]}}
+if(pc==='p'){const r=xy(to)[1],rel=me==='w'?r:7-r;if(rel>=4&&passed(b2,to))return{t:'passer'};if(['d4','e4','d5','e5'].includes(to))return{t:'center'}}
+return null}
+// moveIdea as a verb phrase. own, opp: the words for the mover's pieces and the other side's pieces.
+function ideaText(d,own,opp){if(!d)return'';const chk=d.chk?' with check':'';
+switch(d.t){case'mate':return'is checkmate';case'castle':return'castles and gets '+own+' king to safety';case'promo':return'promotes the pawn';
+case'retake':return'takes back on '+d.sq+chk;case'win':return'wins '+(d.all?opp+' '+PN[d.x]+' on '+d.sq:'material on '+d.sq)+chk;
+case'trade':return'trades '+(d.x===d.y?PL[d.x]:'minor pieces')+chk;case'take':return'captures '+opp+' '+PN[d.x]+' on '+d.sq+chk;
+case'save':return'moves '+own+' attacked '+PN[d.x]+' to safety';case'guard':return'protects '+own+' '+PN[d.x]+' on '+d.sq;
+case'attack':return'attacks '+opp+' '+PN[d.x]+' on '+d.sq+chk;case'check':return'gives check';case'develop':return'develops '+own+' '+PN[d.x];
+case'file':return'puts '+own+' rook on the '+(d.open?'open ':'half-open ')+d.f+'-file';case'passer':return'pushes '+own+' passed pawn';case'center':return'takes space in the center'}
+return''}
+// The mover's pawn move opened a line to the mover's own king, or the king moved and lost castling, and the engine line checks at once.
+function kingMotif(fenB,mv,RL){const me=mv.color,opc=me==='w'?'b':'w';
+for(const j of[0,2]){const m=RL.mv[j];if(!m||!/[+#]/.test(m.san))continue;const b=bmap(RL.fens[j+1]);let ks=null;for(const s in b)if(b[s].t==='k'&&b[s].c===me)ks=s;
+const lead=j?RL.mv[0].san:'';
+if(mv.piece==='p'&&attackers(b,ks,opc).some(a=>'brq'.includes(b[a].t)&&between(a,ks).includes(mv.from)))return{why:'line',san:m.san,lead};
+if(mv.piece==='k'&&!/[kq]/.test(mv.flags)&&!new Chess(fenB).in_check()){const cr=fenB.split(' ')[2];if(me==='w'?/[KQ]/.test(cr):/[kq]/.test(cr))return{why:'nocastle',san:m.san,lead}}}
+return null}
+// Opening habits (first 12 moves): the engine wanted to develop or castle and the move played did neither.
+function openingMotif(fenB,mv,bm,k){if(k>24||!bm||mv.captured||/[kq]/.test(mv.flags))return null;const me=mv.color,home=me==='w'?'1':'8',b=bmap(fenB);
+const homes={n:['b'+home,'g'+home],b:['c'+home,'f'+home],q:['d'+home],r:['a'+home,'h'+home]};
+const isDev=m=>(m.piece==='n'||m.piece==='b')&&homes[m.piece].includes(m.from);
+let left=0;for(const t of['n','b'])for(const s of homes[t])if(b[s]&&b[s].t===t&&b[s].c===me)left++;
+if(/[kq]/.test(bm.flags))return{why:'castle',san:bm.san,left};
+if(!isDev(bm)||isDev(mv)||left<2)return null;
+if(homes[mv.piece]&&!homes[mv.piece].includes(mv.from)&&lossAt(b,mv.from)===0)return{why:'twice',san:bm.san,left,pc:mv.piece};
+if(mv.piece==='q')return{why:'queen',san:bm.san,left,far:(me==='w'?+mv.to[1]:9-mv.to[1])>3};
+if(mv.piece==='p')return{why:'pawn',san:bm.san,left};
+return null}
+// Trading when behind, or skipping a trade when ahead (three pawns of material or more).
+function tradeMotif(fenB,mv,RL,BL,prev){if(prev&&prev.captured)return null;const b=bmap(fenB),bal=matBal(b,mv.color),r=RL.mv[0],b0=BL.mv[0],b1=BL.mv[1];const even=m=>m.captured&&SV[m.captured]>=3&&SV[m.captured]===SV[m.piece];
+const what=m=>m.captured===m.piece?PL[m.piece]:'minor pieces';
+if(bal<=-3&&even(mv)&&r&&r.captured&&r.to===mv.to)return{why:'behind',what:what(mv)};
+if(bal>=3&&b0&&b1&&even(b0)&&b1.captured&&b1.to===b0.to&&!mv.captured)return{why:'ahead',what:what(b0),san:b0.san};
+return null}
+const BAD=['inaccuracy','mistake','miss','blunder'];
+// Mistake themes: [label, default habit, what to practice]
+const THEMES={
+hang:['Hanging pieces','Before you move, check that each of your pieces is defended.','Do a blunder check before every move: what does this move stop defending, and what can be captured now? Puzzle theme: hanging piece.'],
+tactic:['Tactics you allowed','Before you move, look at the checks, captures and threats your opponent gets.','Solve fork, pin, skewer and discovered attack puzzles, and in your games ask what the opponent threatens after your move.'],
+missed:['Missed tactics','On every move, look at all your checks, captures and threats first.','Solve a few puzzles every day, slowly: list every check and every capture before you choose.'],
+capture:['Missed captures','Look at every capture on every move. Free material comes first.','On each move count attackers and defenders for every piece that can be taken, yours and theirs.'],
+mate:['Checkmate patterns','Look at every check, yours and theirs, before you move.','Practice mate in 1 and mate in 2 puzzles, and learn the back-rank mate.'],
+king:['King safety','Leave the pawns in front of your king alone unless you have a clear reason.','Castle early. Before you push a pawn near your king, ask which line it opens.'],
+pawn:['Passed pawns','Stop a passed pawn early by putting a piece in front of it.','Study basic pawn endgames: the square of the pawn, blockades, and pushing your own passed pawns.'],
+trade:['Trading decisions','Trade pieces when you are ahead. Keep them when you are behind.','After you win material, look for safe piece trades. When you are behind, keep pieces on and make threats.'],
+opening:['Opening development','In the opening, move each piece once, castle, and only then attack.','Use the opening trainer here and follow three rules: center pawns, minor pieces out, castle.'],
+convert:['Converting good positions','When you are winning, choose the simplest safe move.','When you are ahead, slow down: find the one threat your opponent has, stop it, then trade pieces.'],
+position:['Quiet slips','When there is no tactic, improve your worst-placed piece.','Compare your move with the engine line and name the idea behind its first move.']};
+const HABITS={'hang.moved':'Before you let go of a piece, check every enemy piece that can capture on that square.','hang.guard':'Check what your piece was defending before you move it.','hang.ignored':'After every move your opponent makes, ask what it attacks.',
+fork:'Look for squares where one enemy piece could attack two of yours, especially with a knight or a check.',pin:'Be careful when one of your pieces stands in front of your king or queen on an open line.',skewer:'Avoid lining up your valuable pieces on the same file, rank or diagonal.',
+disc:'When two enemy pieces stand on one line aimed at you, expect the front one to move with a threat.',removal:'Count the defenders of each piece, then ask if one of them can be captured.',overload:'Do not give one piece two defensive jobs.',deflect:'Ask what each defender is holding, and what happens if it is forced to move.',
+trap:'Before you send a piece forward, check that it has a safe way back.',mate:'Before every move, look at every check your opponent has.',backrank:'Give your king an escape square before your rooks leave the back rank.',missmate:'Look at every check first. A forced line of checks can end the game.',
+recapture:'When something is captured, look at every way to take back before any other move.',nocastle:'Castle before the center opens. A king that has moved cannot castle.',twice:'Move each piece once in the opening before you move any piece twice.',queen:'Develop your knights and bishops before your queen.',
+pawn:'In the opening, prefer a developing move to an extra pawn move.',castle:'Castle early. It makes your king safe and connects your rooks.',stalemate:'When you are far ahead, check that your opponent still has a legal move.'};
+// Format SAN moves with move numbers. p: ply number (1 = White's first move) of the first move.
+function numLine(p,sans){return sans.map((s,j)=>{const q=p+j,n=Math.ceil(q/2);return(q%2?n+'. ':j?'':n+'... ')+s}).join(' ')}
+// Everything the review knows about move k of game g, as a short lesson:
+// {theme, what (what was wrong), reply (the line the other side can play now), found, replyWhy, best (the engine's line), bestWhy, habit, eB, eA}
+// Every statement is checked on the board with chess.js or read from the stored engine line and evals.
+function coachMove(g,k){try{const mv=g.vm[k-1];if(!mv||g.ev[k]==null||g.ev[k-1]==null)return null;
+const mine=(k%2===1)===(g.me==='w'),mw=k%2===1,pov=v=>mw?v:-v,eB=pov(g.ev[k-1]),eA=pov(g.ev[k]),fenB=g.fens[k-1],fenA=g.fens[k];
+const split=s=>(s||'').split(' ').filter(Boolean),yo=mine?'your':'their',op=mine?'their':'your',You=mine?'You':'Your opponent',them=mine?'your opponent':'you';
+let reply=g.best[k]?split(g.pv[k]):[];if(g.best[k]&&reply[0]!==g.best[k])reply=[g.best[k]];
+const notBest=!!g.best[k-1]&&g.best[k-1]!==g.ucis[k-1];
+let bestU=notBest?split(g.pv[k-1]):[];if(notBest&&bestU[0]!==g.best[k-1])bestU=[g.best[k-1]];
+const RL=playLine(fenA,reply),BL=playLine(fenB,bestU),bm=BL.mv[0],bs=bm?bm.san:'';
+const cut=L=>L.mv.slice(0,L.mate&&L.mv.length<=11?11:5).map(m=>m.san);
+const c={k,mine,cls:g.cls[k]||'',theme:'position',what:'',habit:'',eB,eA,reply:cut(RL),replyWhy:'',found:'',best:cut(BL),bestWhy:''};
+let src='';const set=(theme,what,habit,from)=>{c.theme=theme;c.what=what;c.habit=habit||THEMES[theme][1];src=from||''};
+const owed=(mv.captured?VAL[mv.captured]:0)+(mv.promotion?VAL[mv.promotion]-1:0);
+const A=scanLine(fenA,reply,eA<=-9000?(10000+eA||true):false,owed,mv.to);let M=notBest?scanLine(fenB,bestU,eB>=9000?(10000-eB||true):false):null;
+if(M&&M.k==='hang'&&!M.lead&&mv.captured&&(mv.to===M.sq||owed>=M.g))M=null;
+const diagnose=()=>{
+if(!g.best[k]){const e=new Chess(fenA);if(e.in_stalemate())return set(eB>=150?'convert':'position','This is stalemate, so the game is only a draw.',HABITS.stalemate);if(e.in_draw())return set(eB>=150?'convert':'position','This lets the game end in a draw.')}
+if(A&&A.k==='hang'&&!A.lead){const b0=bmap(fenB),u=reply[0];
 if(A.sq===mv.to)A.why='moved';
 else if(b0[u.slice(0,2)]&&b0[A.sq]&&see(b0,u.slice(0,2),A.sq)>0)A.why='ignored';
 else if(reach(b0,mv.from).includes(A.sq))A.why='guard'}
+if(A&&A.k==='trap'&&!A.lead&&A.sq===mv.to)A.why='moved';
+if(M&&M.k==='hang'&&!M.lead&&k>1&&g.vm[k-2].captured&&g.vm[k-2].to===M.sq)M.why='recapture';
 const isMate=t=>t&&(t.k==='mate'||t.k==='backrank');
 let t=null,allowed=true;
 if(isMate(A)){t=A}else if(isMate(M)&&eA<9000){t=M;allowed=false}
 else if(A&&eA<-50){t=A}else if(M){t=M;allowed=false}else if(A){t=A}
-if(t){const s=tacticText(t,allowed,mine);if(s)return s}
-if(eA>=300)return(mine?'You are':'Your opponent is')+' still winning after this, but there was a stronger move.';
-const sanAt=(fen,u)=>{const m=new Chess(fen).move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});return m?m.san:''};
-const wA=reply.length?lineWins(G.fens[k],reply):'',wM=G.best[k-1]&&G.best[k-1]!==G.ucis[k-1]?lineWins(G.fens[k-1],bestL):'';
-if(wA&&(eA<-50||!wM))return'This loses '+wA+' after '+sanAt(G.fens[k],reply[0])+'.';
-if(wM)return(mine?'You':'Your opponent')+' missed '+sanAt(G.fens[k-1],bestL[0])+', which wins '+wM+'.';
-const yo=mine?'your':'their',op=mine?'your opponent':'you';
-if(eB>=150&&eA<60)return'This gives away '+yo+' winning advantage.';
-if(eB>-60&&eA<=-150)return'This hands '+op+' a clear advantage.';
-if(eB<=-150)return'This makes a difficult position worse.';
-if(eB>=150)return'This lets a big part of '+yo+' advantage slip.';
-return'This gives '+op+' the easier game.'}catch(e){return''}}
+if(t){const s=tacticText(t,allowed,mine);if(s){const key=t.k+(t.why?'.'+t.why:'');
+const theme=isMate(t)?'mate':t.k==='promo'?'pawn':t.k==='hang'&&!t.lead?(allowed?'hang':'capture'):(allowed?'tactic':'missed');
+return set(theme,s,allowed?(HABITS[key]||HABITS[t.k]):(isMate(t)?HABITS.missmate:t.why==='recapture'?HABITS.recapture:''),allowed?'A':'M')}}
+if(eA<=eB-80){const km=kingMotif(fenB,mv,RL);if(km){const pre=km.lead?'after '+km.lead+', ':'';
+return set('king',km.why==='line'?'This opens a line to '+yo+' own king: '+pre+km.san+' comes with check.':'This moves '+yo+' king and gives up castling. '+(km.lead?'After '+km.lead+', ':'')+km.san+' follows with check.',km.why==='nocastle'?HABITS.nocastle:'','A')}}
+const tr=tradeMotif(fenB,mv,RL,BL,k>1?g.vm[k-2]:null);
+if(tr&&tr.why==='ahead')return set('trade',(mine?'You are':'Your opponent is')+' ahead in material, and '+tr.san+' would trade '+tr.what+'. Fewer pieces make extra material count for more.','','M');
+if(eA>=300)return set('convert',(mine?'You are':'Your opponent is')+' still winning after this, but '+(bs||'another move')+' was stronger.');
+const wA=reply.length?lineWins(fenA,reply,owed):'',wM=notBest?lineWins(fenB,bestU,owed):'';
+if(wA&&RL.mv.length&&(eA<-50||!wM))return set('tactic','This loses '+wA+' after '+RL.mv[0].san+'.','','A');
+if(wM&&bs)return set(bm.captured?'capture':'missed',You+' missed '+bs+', which wins '+wM+'.','','M');
+if(eA<=-150){const pa=passerMotif(RL);if(pa)return set('pawn',tacticText(pa,true,mine),'','A')}
+if(eB>=150&&notBest){const pa=passerMotif(BL);if(pa)return set('pawn',tacticText(pa,false,mine),'','M')}
+if(tr)return set('trade','This trades '+tr.what+' while '+(mine?'you are':'your opponent is')+' behind in material. Every trade makes the extra material count for more.','','A');
+const om=notBest?openingMotif(fenB,mv,bm,k):null;
+if(om){const rest=om.left+' of '+yo+' knights and bishops are still on their starting squares';
+if(om.why==='castle')return set('opening','This delays castling. The engine wanted '+om.san+' to get '+yo+' king safe.',HABITS.castle,'M');
+if(om.why==='twice')return set('opening','This moves the same '+PN[om.pc]+' again while '+rest+'.',HABITS.twice);
+if(om.why==='queen')return set('opening',(om.far?'This brings the queen out early while ':'This spends a move on the queen while ')+rest+'.',HABITS.queen);
+return set('opening','This pawn move does not help development: '+rest+'.',HABITS.pawn)}
+const theme=eB>=150&&eA<60?'convert':'position';
+const ri=RL.mv.length?moveIdea(fenA,RL.u[0],mv):null;
+if(ri&&ri.t==='attack'&&eA<eB)return set(theme,'This allows '+RL.mv[0].san+', which '+ideaText(ri,op,yo)+'.','','A');
+const bi=bm?ideaText(moveIdea(fenB,BL.u[0],k>1?g.vm[k-2]:null),yo,op):'';
+if(bi)return set(theme,'A stronger move was '+bs+', which '+bi+'.','','M');
+const d=eB-eA,pref=bs?' The engine prefers '+bs+(Math.abs(eB)<9000&&Math.abs(eA)<9000&&d>=30?' and rates it '+(d/100).toFixed(1)+' pawns better.':'.'):'';
+if(eB>=150&&eA<60)return set(theme,'This gives away '+yo+' winning advantage.'+pref);
+if(eB>-60&&eA<=-150)return set(theme,'This hands '+them+' a clear advantage.'+pref);
+return set(theme,'There is no single tactic behind this.'+pref)};
+diagnose();
+// why the best move is better, unless the first sentence already said it
+if(bm&&src!=='M'){c.bestWhy=M&&tacticWhy(M,op)||ideaText(moveIdea(fenB,BL.u[0],k>1?g.vm[k-2]:null),yo,op)}
+// what the other side's first move does, unless the first sentence already said it
+if(RL.mv.length&&src!=='A'){const ri=moveIdea(fenA,RL.u[0],mv);if(ri&&['win','attack','mate','promo','passer'].includes(ri.t))c.replyWhy=ideaText(ri,op,yo)}
+// did the other side find the engine's reply in the game?
+if(RL.mv.length&&g.ucis[k]){c.found=g.ucis[k]===RL.u[0]?'yes':BAD.includes(g.cls[k+1])?g.san[k]:''}
+return c}catch(e){return null}}
+// Why was move k a mistake? One or two short plain-English sentences, or '' when there is nothing useful to say.
+function explain(k){const c=G?coachMove(G,k):null;return c?c.what:''}
+// The lesson for move k as plain text lines (used for the copy to Claude text)
+function coachLines(g,k){const c=coachMove(g,k);if(!c)return[];const o=[c.what];
+if(c.reply.length)o.push((c.mine?'Opponent can now play: ':'I can now play: ')+numLine(k+1,c.reply)+(c.replyWhy?' ('+c.reply[0]+' '+c.replyWhy+')':''));
+if(c.best.length)o.push('Engine line instead: '+numLine(k,c.best)+(c.bestWhy?' ('+c.best[0]+' '+c.bestWhy+')':''));
+if(c.mine&&c.habit)o.push('Habit: '+c.habit);return o}
+// The player's own mistakes in a game grouped by theme: [{theme,label,n,weight,moves:[{k,cls,san}]}], biggest first
+function themeSummary(g){const by={},W={inaccuracy:1,mistake:2,miss:2,blunder:3};for(let k=1;k<=g.san.length;k++){const c=g.cls[k];if(!BAD.includes(c)||((k%2===1)!==(g.me==='w')))continue;
+const m=coachMove(g,k);if(!m)continue;const t=by[m.theme]=by[m.theme]||{theme:m.theme,label:THEMES[m.theme][0],n:0,weight:0,moves:[]};t.n++;t.weight+=W[c];t.moves.push({k,cls:c,san:g.san[k-1]})}
+return Object.values(by).sort((a,b)=>b.weight-a.weight||b.n-a.n)}
 function list(){const T=G.san.length;let h='';for(let m=0;m<T;m+=2){h+='<span class="n">'+(m/2+1)+'.</span>';for(const k of[m+1,m+2]){if(k>T){h+='<span></span>';continue}h+='<button type="button" class="mb" data-i="'+k+'">'+(G.cls[k]?badge(G.cls[k]):'<span class="dot" style="background:var(--soft)"></span>')+esc(G.san[k-1])+'</button>'}}
 $('ml').innerHTML=h}
 function acc(side){const a=[];for(let k=1;k<=G.san.length;k++)if(G.cls[k]&&((k%2===1)===(side==='w'))){a.push(Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*G.loss[k]*100)-3.1669)))}return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}
