@@ -91,7 +91,7 @@ check(explained.length > 0 && explained.every(e => / [A-Z].*\.$/.test(e)), 'mist
 if (explained.length) console.log('Explanations:\n  ' + explained.join('\n  '));
 
 const text = await page.evaluate(() => document.body.innerText);
-check(!/—/.test(text), 'no em dashes in the page text');
+check(!/\u2014/.test(text), 'no em dashes in the page text');
 if (!arg('block')) {
   check(bad.length === 0, 'no failed network requests', bad.join(' | '));
   check(errors.length === 0, 'no console errors', errors.join(' | '));
