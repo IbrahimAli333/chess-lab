@@ -82,6 +82,7 @@ footer{color:var(--muted);font-size:13px}
 .grp{font-size:13px;color:var(--muted);font-weight:600;margin:14px 0 6px}
 .ln{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;margin:0 0 6px;text-align:left}
 .ln.on{border-color:#81B64C;background:var(--sel)}
+.why{margin:8px 0 0;font-weight:600}
 .vline{line-height:2.3;margin:6px 0}.vm{min-height:32px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
 .ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}
 html{scroll-padding-top:12px}
@@ -256,6 +257,7 @@ let n;if(!i)n='<b>Start of the game.</b> Step through with the arrows, tap any m
 else{const c=G.cls[i];const mine=(i%2===1)===(G.me==='w');const who=mine?'You':'Your opponent';
 if(c){n='<span class="lab"><b>'+badge(c)+' '+esc(G.san[i-1])+' is '+(c==='inaccuracy'?'an ':'a ')+C[c][0].toLowerCase()+'</b></span>';
 if(!['best','great','brilliant','book'].includes(c)&&G.best[i-1]){const bs=sanOf(i-1,G.best[i-1]);if(bs)n+='<div style="color:var(--muted)">Best was '+esc(bs)+'</div><button type="button" id="lineBtn" style="margin-top:8px">Show the best line, 10 moves deep</button>'}
+if(['inaccuracy','mistake','miss','blunder'].includes(c)){const w=explain(i);if(w)n+='<div class="why">'+esc(w)+'</div>'}
 if(c==='miss')n+='<div style="color:var(--muted)">The move before was a mistake, and this one let the chance slip.</div>'}
 else n=esc(who)+' played '+esc(G.san[i-1])+'. <span style="color:var(--muted)">Stockfish is still checking this move.</span>'}
 $('note').innerHTML=n;
@@ -263,6 +265,124 @@ document.querySelectorAll('.mb').forEach(b=>b.classList.toggle('on',+b.dataset.i
 const on=document.querySelector('.mb.on');if(on){const box=$('ml');const t=on.offsetTop-box.offsetTop;if(t<box.scrollTop||t>box.scrollTop+box.clientHeight-40)box.scrollTop=t-60}}
 function sanOf(k,uci){try{const t=new Chess(G.fens[k]);const m=t.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||'q'});return m?m.san:''}catch(e){return''}}
 
+// ---- tactics: name the idea behind a move, using chess.js positions ----
+const PN={p:'pawn',n:'knight',b:'bishop',r:'rook',q:'queen',k:'king'};
+const SV={p:1,n:3,b:3,r:5,q:9,k:100};
+const FL='abcdefgh';
+const DIRS={n:[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]],k:[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]],b:[[1,1],[1,-1],[-1,1],[-1,-1]],r:[[1,0],[-1,0],[0,1],[0,-1]]};
+DIRS.q=DIRS.k;
+const sqOf=(f,r)=>f<0||f>7||r<0||r>7?null:FL[f]+(r+1);
+const xy=s=>[FL.indexOf(s[0]),+s[1]-1];
+// board map {square:{t:type,c:color}} from a FEN
+function bmap(fen){const b={};fen.split(' ')[0].split('/').forEach((row,ri)=>{let f=0;for(const ch of row){if(ch>='1'&&ch<='8')f+=+ch;else{b[FL[f]+(8-ri)]={t:ch.toLowerCase(),c:ch===ch.toLowerCase()?'b':'w'};f++}}});return b}
+// squares along one direction until (and including) the first piece
+function ray(b,from,d){const out=[];let [f,r]=xy(from);for(;;){f+=d[0];r+=d[1];const s=sqOf(f,r);if(!s)break;out.push(s);if(b[s])break}return out}
+// every square the piece on `from` attacks
+function reach(b,from){const p=b[from];if(!p)return[];const [f,r]=xy(from);
+if(p.t==='p'){const d=p.c==='w'?1:-1;return[sqOf(f-1,r+d),sqOf(f+1,r+d)].filter(Boolean)}
+if(p.t==='n'||p.t==='k')return DIRS[p.t].map(d=>sqOf(f+d[0],r+d[1])).filter(Boolean);
+let out=[];for(const d of DIRS[p.t])out=out.concat(ray(b,from,d));return out}
+function attackers(b,sq,color){const out=[];for(const s in b)if(b[s].c===color&&reach(b,s).includes(sq))out.push(s);return out}
+// static exchange evaluation: material won by the side capturing from -> to
+function see(b,from,to){b=Object.assign({},b);const gain=[b[to]?SV[b[to].t]:0];let side=b[from].c,cur=from,d=0;
+for(;;){const val=SV[b[cur].t];b[to]=b[cur];delete b[cur];side=side==='w'?'b':'w';
+const att=attackers(b,to,side).sort((x,y)=>SV[b[x].t]-SV[b[y].t]);if(!att.length)break;d++;gain[d]=val-gain[d-1];cur=att[0]}
+while(d>0){gain[d-1]=-Math.max(-gain[d-1],gain[d]);d--}return gain[0]}
+// can the piece on sq be taken without losing material?
+function loose(b,sq){const p=b[sq];return attackers(b,sq,p.c==='w'?'b':'w').some(a=>see(b,a,sq)>=0)}
+function joinNames(a){return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1]}
+function backRank(ch){if(!ch.in_checkmate())return false;const b=bmap(ch.fen()),side=ch.turn();let ks=null;for(const s in b)if(b[s].t==='k'&&b[s].c===side)ks=s;
+const [f,r]=xy(ks);if(r!==(side==='w'?0:7))return false;const fr=side==='w'?1:6;
+for(const df of[-1,0,1]){const s=sqOf(f+df,fr);if(s&&!(b[s]&&b[s].c===side))return false}
+return attackers(b,ks,side==='w'?'b':'w').some(a=>(b[a].t==='r'||b[a].t==='q')&&xy(a)[1]===r)}
+// Name the tactic in one move. fen: position before, uci: the move. Returns null or {k:kind,...}
+function tacticOf(fen,uci){const ch=new Chess(fen);const b1=bmap(fen);const m=ch.move({from:uci.slice(0,2),to:uci.slice(2,4),promotion:uci[4]||'q'});if(!m)return null;
+const b2=bmap(ch.fen()),me=m.color,op=me==='w'?'b':'w',to=m.to,pc=b2[to],san=m.san;
+if(ch.in_checkmate())return{k:backRank(ch)?'backrank':'mate',san};
+const safe=!loose(b2,to);
+// win of a piece that is simply hanging
+let cap=null;if(m.captured&&!(m.flags||'').includes('e')){const g=see(b1,m.from,to);if(g>0)cap={k:'hang',san,x:m.captured,sq:to,g,free:attackers(b1,to,op).length===0}}
+if(cap&&cap.g>=3&&cap.x!=='p')return cap;
+// fork: the moved piece now attacks two or more targets
+if(pc.t!=='k'&&safe){const tg=[];for(const s of reach(b2,to)){const x=b2[s];if(!x||x.c===me)continue;
+if(x.t==='k'||SV[x.t]>SV[pc.t]||(x.t!=='p'&&see(b2,to,s)>0))tg.push(x.t)}
+if(tg.length>=2){tg.sort((a,b)=>SV[b]-SV[a]);return{k:'fork',san,by:pc.t,tg:tg.slice(0,3)}}}
+// discovered attack: the move opens a line for another piece
+for(const s in b2){const L=b2[s];if(L.c!==me||s===to||!DIRS[L.t]||L.t==='n'||L.t==='k')continue;
+for(const d of DIRS[L.t]){const r1=ray(b1,s,d);if(r1[r1.length-1]!==m.from)continue;const r2=ray(b2,s,d);const ts=r2[r2.length-1],T=b2[ts];
+if(!T||T.c===me||ts===to)continue;if(T.t==='k')return{k:'disc',san,by:L.t,x:'k'};
+if(T.t!=='p'&&(SV[T.t]>SV[L.t]||see(b2,s,ts)>0)&&(ch.in_check()||m.captured||SV[T.t]>=5))return{k:'disc',san,by:L.t,x:T.t}}}
+// skewer and pin: a line piece attacks one piece with another behind it
+if(DIRS[pc.t]&&pc.t!=='n'&&pc.t!=='k'&&safe){for(const d of DIRS[pc.t]){const r1=ray(b2,to,d);const xs=r1[r1.length-1],X=xs&&b2[xs];if(!X||X.c===me)continue;
+const r2=ray(b2,xs,d);const ys=r2[r2.length-1],Y=ys&&b2[ys];if(!Y||Y.c===me)continue;
+const bx=Object.assign({},b2);delete bx[xs];
+if(X.t!=='p'&&Y.t!=='p'&&Y.t!=='k'&&(X.t==='k'||(SV[X.t]>SV[Y.t]&&SV[X.t]>SV[pc.t]))&&(SV[Y.t]>SV[pc.t]||see(bx,to,ys)>0))return{k:'skewer',san,x:X.t,y:Y.t};
+const xTakes=reach(b2,xs).includes(to)&&see(b2,xs,to)>=0;
+if(X.t!=='p'&&X.t!=='k'&&!xTakes&&(Y.t==='k'||(SV[Y.t]>SV[X.t]&&SV[Y.t]>SV[pc.t])))return{k:'pin',san,x:X.t,y:Y.t}}}
+return cap}
+// material won by the side to move over the first plies of a line (in pawns)
+function lineGain(fen,ucis,n){const ch=new Chess(fen);const me=ch.turn();let g=0;for(const u of ucis.slice(0,n)){const m=ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});if(!m)break;
+let v=(m.captured?VAL[m.captured]:0)+(m.promotion?VAL[m.promotion]-1:0);g+=m.color===me?v:-v}return g}
+// what the side to move wins over the first plies of a line, in words ('' if nothing)
+function lineWins(fen,ucis){const n=ucis.length<2?ucis.length:Math.min(8,ucis.length-ucis.length%2);const g=Math.min(lineGain(fen,ucis,n),n>6?Math.max(lineGain(fen,ucis,6),1):99);if(g<1||lineGain(fen,ucis,n)<1)return'';
+const ch=new Chess(fen),me=ch.turn();let rook=false,minor=false;for(const u of ucis.slice(0,n)){const m=ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});if(!m)break;if(m.captured==='r'&&m.color===me)rook=true;if((m.captured==='n'||m.captured==='b')&&m.color!==me)minor=true}
+return g===1?'a pawn':g===2?(rook&&minor?'the exchange':'two pawns'):g<5?'a piece':g===5?'a rook':g>=9?'the queen':'a lot of material'}
+// look for a tactic by the side to move on the first or second move of an engine line
+function scanLine(fen,ucis,mating){if(!ucis.length)return null;const ch=new Chess(fen);const sans=[];let fens=[fen];
+for(const u of ucis){const m=ch.move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});if(!m)break;sans.push(m.san);fens.push(ch.fen())}
+if(!sans.length)return null;
+if(ch.in_checkmate()&&sans.length%2===1){const n=(sans.length+1)/2;return{k:backRank(ch)?'backrank':'mate',san:sans[0],n}}
+if(mating)return{k:'mate',san:sans[0],n:0};
+const wins=lineGain(fen,ucis,8)>=1||lineGain(fen,ucis,6)>=1;
+for(const j of[0,2]){if(j>=sans.length)break;const t=tacticOf(fens[j],ucis[j]);if(!t)continue;
+if(!wins&&(j>0||t.k!=='hang'))continue;if(j)t.lead=sans[0];return t}
+return null}
+// one short sentence about a tactic. allowed=true: the mover let it happen; false: the mover missed it
+function tacticText(t,allowed,mine){const V=allowed?(mine?'your':'their'):'the';const who=mine?'You':'Your opponent';
+const head=(a,rest)=>(allowed?(t.lead?'This allows '+t.lead+' followed by '+a:'This allows '+a):(t.lead?who+' missed '+t.lead+' followed by '+a:who+' missed '+a))+rest;
+switch(t.k){
+case'backrank':return head('a back-rank mate',t.n>1?', starting with '+t.san+'.':': '+t.san+' and the king is trapped behind its own pawns.');
+case'mate':return t.n===1?head('checkmate in one',': '+t.san+'.'):head('a forced checkmate',(t.n?' in '+t.n:'')+', starting with '+t.san+'.');
+case'fork':return head((t.by==='q'?'a queen':'a '+PN[t.by])+' fork',': '+t.san+' attacks '+V+' '+joinNames(t.tg.map(x=>PN[x]))+' at the same time.');
+case'pin':return head('a pin',': '+t.san+' pins '+V+' '+PN[t.x]+' to '+V+' '+PN[t.y]+'.');
+case'skewer':return head('a skewer',': '+t.san+' attacks '+V+' '+PN[t.x]+', and the '+PN[t.y]+' behind it falls.');
+case'disc':return t.x==='k'?head('a discovered check',': '+t.san+' opens the '+PN[t.by]+' against '+V+' king.'):head('a discovered attack',': '+t.san+' uncovers the '+PN[t.by]+' against '+V+' '+PN[t.x]+'.');
+case'hang':{const got=t.free||t.g>=SV[t.x]?(allowed?V+' ':'the ')+PN[t.x]:(t.x==='r'&&t.g===2?'the exchange':'material');
+if(t.lead)return(allowed?'This allows ':who+' missed ')+t.lead+' followed by '+t.san+', winning '+got+'.'}
+if(!allowed)return t.free&&t.x!=='p'?who+' missed a hanging '+PN[t.x]+': '+t.san+' wins it for free.':who+' missed '+t.san+', which wins '+(t.x==='p'?'a pawn':'material')+'.';
+if(t.why==='moved')return t.free?'This leaves '+V+' '+PN[t.x]+' on '+t.sq+' hanging: '+t.san+' wins it for free.':'This puts '+V+' '+PN[t.x]+' on '+t.sq+' where it can be won: '+t.san+'.';
+if(t.why==='guard')return'This stops defending '+V+' '+PN[t.x]+' on '+t.sq+', so '+t.san+' wins it.';
+if(t.why==='ignored')return(mine?'Your ':'Their ')+PN[t.x]+' on '+t.sq+' was under attack and this does not save it: '+t.san+' wins it.';
+return'This leaves '+V+' '+PN[t.x]+' on '+t.sq+' hanging: '+t.san+' wins '+(t.free?'it for free.':'material.')}
+return''}
+// Why was move k a mistake? One short plain-English sentence, or '' when there is nothing useful to say.
+function explain(k){try{if(!G||!G.vm[k-1]||G.ev[k]==null||G.ev[k-1]==null)return'';
+const mine=(k%2===1)===(G.me==='w'),mw=k%2===1,pov=v=>mw?v:-v,eB=pov(G.ev[k-1]),eA=pov(G.ev[k]),mv=G.vm[k-1];
+if(!G.best[k]){const e=new Chess(G.fens[k]);if(e.in_stalemate())return'This is stalemate, so the game is only a draw.';if(e.in_draw())return'This lets the game end in a draw.'}
+const line=s=>(s||'').split(' ').filter(Boolean);
+let reply=line(G.pv[k]);if(G.best[k]&&reply[0]!==G.best[k])reply=[G.best[k]];
+let bestL=line(G.pv[k-1]);if(G.best[k-1]&&bestL[0]!==G.best[k-1])bestL=[G.best[k-1]];
+const A=scanLine(G.fens[k],reply,eA<=-9000),M=G.best[k-1]&&G.best[k-1]!==G.ucis[k-1]?scanLine(G.fens[k-1],bestL,eB>=9000):null;
+if(A&&A.k==='hang'&&!A.lead){const b0=bmap(G.fens[k-1]),u=reply[0];
+if(A.sq===mv.to)A.why='moved';
+else if(b0[u.slice(0,2)]&&b0[A.sq]&&see(b0,u.slice(0,2),A.sq)>0)A.why='ignored';
+else if(reach(b0,mv.from).includes(A.sq))A.why='guard'}
+const isMate=t=>t&&(t.k==='mate'||t.k==='backrank');
+let t=null,allowed=true;
+if(isMate(A)){t=A}else if(isMate(M)&&eA<9000){t=M;allowed=false}
+else if(A&&eA<-50){t=A}else if(M){t=M;allowed=false}else if(A){t=A}
+if(t){const s=tacticText(t,allowed,mine);if(s)return s}
+if(eA>=300)return(mine?'You are':'Your opponent is')+' still winning after this, but there was a stronger move.';
+const sanAt=(fen,u)=>{const m=new Chess(fen).move({from:u.slice(0,2),to:u.slice(2,4),promotion:u[4]||'q'});return m?m.san:''};
+const wA=reply.length?lineWins(G.fens[k],reply):'',wM=G.best[k-1]&&G.best[k-1]!==G.ucis[k-1]?lineWins(G.fens[k-1],bestL):'';
+if(wA&&(eA<-50||!wM))return'This loses '+wA+' after '+sanAt(G.fens[k],reply[0])+'.';
+if(wM)return(mine?'You':'Your opponent')+' missed '+sanAt(G.fens[k-1],bestL[0])+', which wins '+wM+'.';
+const yo=mine?'your':'their',op=mine?'your opponent':'you';
+if(eB>=150&&eA<60)return'This gives away '+yo+' winning advantage.';
+if(eB>-60&&eA<=-150)return'This hands '+op+' a clear advantage.';
+if(eB<=-150)return'This makes a difficult position worse.';
+if(eB>=150)return'This lets a big part of '+yo+' advantage slip.';
+return'This gives '+op+' the easier game.'}catch(e){return''}}
 function list(){const T=G.san.length;let h='';for(let m=0;m<T;m+=2){h+='<span class="n">'+(m/2+1)+'.</span>';for(const k of[m+1,m+2]){if(k>T){h+='<span></span>';continue}h+='<button type="button" class="mb" data-i="'+k+'">'+(G.cls[k]?badge(G.cls[k]):'<span class="dot" style="background:var(--soft)"></span>')+esc(G.san[k-1])+'</button>'}}
 $('ml').innerHTML=h}
 function acc(side){const a=[];for(let k=1;k<=G.san.length;k++)if(G.cls[k]&&((k%2===1)===(side==='w'))){a.push(Math.max(0,Math.min(100,103.1668*Math.exp(-0.04354*G.loss[k]*100)-3.1669)))}return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}
@@ -340,7 +460,7 @@ const id=d.dataset.del;if(db){try{await db.collection('games').doc(id).delete()}
 $('coachBtn').addEventListener('click',async()=>{if(!G)return;if(!G.done){$('coach').textContent='Wait for the engine to finish, then ask again.';return}
 const meC=G.me==='w'?'White':'Black';const lines=[];
 for(let k=1;k<=G.san.length;k++){const mine=(k%2===1)===(G.me==='w');const c=G.cls[k];if(!c)continue;
-if(mine&&['inaccuracy','mistake','miss','blunder','brilliant','great'].includes(c)){const pov=v=>(G.me==='w'?v:-v)/100;lines.push(Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c+'; engine best: '+(sanOf(k-1,G.best[k-1]||'')||'?')+'; eval for me before '+pov(G.ev[k-1]).toFixed(1)+', after '+pov(G.ev[k]).toFixed(1))}
+if(mine&&['inaccuracy','mistake','miss','blunder','brilliant','great'].includes(c)){const pov=v=>(G.me==='w'?v:-v)/100;lines.push(Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c+'; engine best: '+(sanOf(k-1,G.best[k-1]||'')||'?')+'; eval for me before '+pov(G.ev[k-1]).toFixed(1)+', after '+pov(G.ev[k]).toFixed(1)+(['inaccuracy','mistake','miss','blunder'].includes(c)&&explain(k)?'; note: '+explain(k):''))}
 if(!mine&&['mistake','blunder'].includes(c))lines.push('Opponent '+Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c)}
 let mv='';G.san.forEach((s,k)=>{mv+=(k%2===0?(k/2+1)+'. ':'')+s+' '});
 const prompt='You are a friendly, direct chess coach for Ibrahim Ali, a club player rated about 1100 to 1200 in rapid on chess.com. He played '+meC+' in this game. Result: '+G.result+'. Opening: '+G.opening+'.\n\nMoves: '+mv.trim()+'\n\nStockfish ratings of the key moves (evals in pawns from his side, positive is good for him):\n'+(lines.join('\n')||'No inaccuracies or worse from him.')+'\n\nAccuracy: him '+(acc(G.me)||0).toFixed(1)+', opponent '+(acc(G.me==='w'?'b':'w')||0).toFixed(1)+'.\n\nWrite his review in plain text with these four short sections, each starting with its title on its own line:\nVerdict (one sentence)\nWhat went well (2 points)\nBiggest mistakes (up to 3: the move, why it was a problem in simple words, and the habit that would have caught it)\nPractice this week (2 or 3 concrete tasks, like a puzzle theme or an opening line)\nRules: rely only on the engine data above and do not invent concrete variations you are not sure of. Use simple language. Never use em dashes. Use hyphen bullets. Under 230 words.';

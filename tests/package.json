@@ -4,7 +4,7 @@
   "description": "Browser tests for Chess Lab. Not part of the site itself.",
   "type": "module",
   "scripts": {
-    "test": "node review.mjs",
+    "test": "node tactics.cjs && node review.mjs",
     "test:live": "node review.mjs --url=https://shimmering-cactus-e3b6fc.netlify.app/"
   },
   "devDependencies": {

@@ -87,6 +87,7 @@ for (let k = 1; k <= moves.length; k++) {
   await page.click('#backBtn');
 }
 if (!lineOk && lineInfo.startsWith('no move')) check(false, lineInfo);
+check(explained.length > 0 && explained.every(e => / [A-Z].*\.$/.test(e)), 'mistakes come with a one-sentence explanation', explained.length + ' explained');
 if (explained.length) console.log('Explanations:\n  ' + explained.join('\n  '));
 
 const text = await page.evaluate(() => document.body.innerText);
