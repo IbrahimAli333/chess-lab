@@ -80,6 +80,8 @@ check(lab.startsWith(Math.ceil(cb.links[0] / 2) + (cb.links[0] % 2 ? '. ' : '...
   await o0.goto(local.url); await o0.waitForTimeout(600);
   const own = await o0.evaluate(() => ({ user: document.getElementById('uname').value, h1: document.getElementById('brand').textContent, lines: document.getElementById('lines').innerText, stored: localStorage.getItem('ccr-user') }));
   check(own.user === 'ibrahimaliKH' && own.stored === 'ibrahimaliKH' && own.h1 === "Ibrahim Ali's chess lab" && /daily game/.test(own.lines), 'an existing browser with saved games but no stored username keeps the owner setup', own.h1);
+  const land = await o0.evaluate(() => ({ loader: document.getElementById('loader').hidden, title: document.getElementById('gTitle').textContent, pgn: document.getElementById('pgn').value }));
+  check(land.loader && /Faab8/.test(land.title) && land.pgn === '', 'a returning visitor lands on their latest reviewed game with the loader closed', land.title);
   await octx0.close();
 }
 
