@@ -415,12 +415,15 @@ let done=false;const fail=m=>{if(done)return;done=true;clearTimeout(t);try{w.ter
 w.onmessage=ev=>{const l=String(ev.data);if(l.startsWith('readyok')&&!done){done=true;clearTimeout(t);res(w)}};w.onerror=ev=>{if(ev&&ev.preventDefault)ev.preventDefault();fail('load')};
 w.postMessage('uci');if(e.t){w.postMessage('setoption name Threads value '+e.t);w.postMessage('setoption name Hash value 64')}w.postMessage('setoption name MultiPV value 2');w.postMessage('isready')})}
 async function startEngine(){let err;for(const e of(ENG?[ENG]:ENGINES)){try{const w=await bootEngine(e);ENG=e;$('engName').textContent=e.n;return w}catch(x){err=x}}throw err||new Error('engine')}
-async function analyze(){const my=++gen;const T=G.san.length;prog(0,T,'Starting Stockfish');
+// Search limits for a review. Each position gets up to LIM.ms, but long games share
+// a total budget of LIM.total ms so a full review stays well under 90 seconds.
+const LIM={depth:16,ms:800,min:200,total:60000};
+async function analyze(){const my=++gen;const T=G.san.length;const goCmd='go depth '+LIM.depth+' movetime '+Math.round(Math.max(LIM.min,Math.min(LIM.ms,LIM.total/(T+1))));prog(0,T,'Starting Stockfish');
 try{if(!worker)worker=await startEngine()}catch(e){$('ptx').textContent="Stockfish couldn't start in this browser. Try the page on a computer.";$('ppc').textContent='';return}
 if(my!==gen)return;worker.postMessage('ucinewgame');let cur=0,lines={},pv1='';
 const step=()=>{if(my!==gen)return;if(cur>T){G.done=true;prog(T+1,T,'Review complete');panel();draw();save();return}
 const t=new Chess(G.fens[cur]);if(t.game_over()){G.ev[cur]=t.in_checkmate()?(t.turn()==='w'?-10000:10000):0;G.w2[cur]=null;G.best[cur]=null;G.pv[cur]='';fin();return}
-lines={};pv1='';worker.postMessage('position fen '+G.fens[cur]);worker.postMessage('go depth 13 movetime 1000')};
+lines={};pv1='';worker.postMessage('position fen '+G.fens[cur]);worker.postMessage(goCmd)};
 const fin=()=>{if(cur>0){classify(cur);list();if(cur===i||cur===i+1)draw();if(cur%6===0)panel()}cur++;prog(cur,T,'Analyzing move '+Math.min(cur,T)+' of '+T);step()};
 worker.onmessage=e=>{if(my!==gen)return;const l=String(e.data);
 if(l.startsWith('info')&&l.includes(' score ')){const mp=(l.match(/ multipv (\d+)/)||[0,'1'])[1];const s=l.match(/score (cp|mate) (-?\d+)/);if(!s)return;let v=+s[2];if(s[1]==='mate')v=v>0?10000-v:-10000-v;lines[mp]=v;if(mp==='1'){const pm=l.match(/ pv (.+)$/);if(pm)pv1=pm[1].trim().split(' ').slice(0,20).join(' ')}}
