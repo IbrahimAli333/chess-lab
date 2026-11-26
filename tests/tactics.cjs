@@ -109,7 +109,8 @@ const lessons=[
  ['queen out early',['e4','c5','Qh5'],{eB:40,eA:-30,best:'g1f3 b8c6',reply:'e7e6 h5e2',cls:'inaccuracy'},'opening','brings the queen out early',''],
  ['pawn move instead of development',['e4','e5','Nf3','Nc6','h3'],{eB:30,eA:-30,best:'f1c4 g8f6',reply:'g8f6 b1c3',cls:'inaccuracy'},'opening','pawn move does not help development',''],
  ['castling delayed',['e4','e5','Nf3','Nc6','Bc4','Bc5','d3','Nf6','Nc3','d6','h3'],{eB:30,eA:-40,best:'e1g1 e8g8',reply:'c6a5 c4b3',cls:'inaccuracy'},'opening','delays castling',''],
- ['developing move is not an opening slip',['e4','e5','Nf3','Nc6','Bc4'],{eB:30,eA:-40,best:'f1b5 a7a6',reply:'g8f6 d2d3',cls:'inaccuracy'},'!opening','',''],
+ ['developing move is not an opening slip',['e4','e5','Nf3','Nc6','Bc4'],{eB:30,eA:-40,best:'f1b5 a7a6',reply:'g8f6 d2d3',cls:'inaccuracy'},'position','no single tactic','develops'],
+ ['quiet move when the engine wanted an open file',['h3'],{fen:'6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1',eB:60,eA:0,best:'a1d1 g8f8',reply:'g8f8 a1d1',cls:'inaccuracy'},'active','puts your rook on the open d-file',''],
  ['trading queens when behind',['Qxd8+'],{fen:'3q2k1/5ppp/2n5/8/8/8/5PPP/3Q2K1 w - - 0 1',eB:-350,eA:-450,best:'d1e2 d8d5',reply:'c6d8 g1f1'},'trade','trades queens while you are behind',''],
  ['trading queens with equal material is fine',['Qxd8+'],{fen:'3q2k1/5ppp/2n5/8/8/2N5/5PPP/3Q2K1 w - - 0 1',eB:0,eA:-70,best:'d1e2 d8d5',reply:'c6d8 g1f1',cls:'inaccuracy'},'!trade','','behind in material'],
  ['skipping a trade when ahead',['Qe2'],{fen:'3q1rk1/5ppp/8/8/8/2N5/5PPP/R2Q2K1 w - - 0 1',eB:420,eA:330,best:'d1d8 f8d8',reply:'d8d4 c3b5',cls:'inaccuracy'},'trade','Qxd8 would trade queens',''],
@@ -119,7 +120,7 @@ const lessons=[
  ['promotion allowed',['Ka2'],{fen:'8/8/8/8/8/3p4/8/K5k1 w - - 0 1',eB:0,eA:-900,best:'a1b1 d3d2 b1c2',reply:'d3d2 a2b2 d2d1q',cls:'blunder'},'pawn','promotes in 2 moves',''],
  ['still winning',['Ka2'],{fen:'7k/8/8/8/8/8/1Q6/K1Q5 w - - 0 1',eB:2000,eA:1500,best:'c1c7 h8g8',reply:'h8g8 b2g2',cls:'inaccuracy'},'convert','still winning',''],
  ['stalemate',['Qf7'],{fen:'7k/8/6K1/8/8/8/8/5Q2 w - - 0 1',eB:9999,eA:0,best:'f1f8',reply:''},'convert','stalemate',''],
- ['honest fallback: best move and its idea',['e4','e6','Bc4'],{eB:40,eA:-30,best:'d2d4 d7d5',reply:'d7d5 e4d5 e6d5',cls:'inaccuracy'},'position','d5, which attacks your bishop on c4',''],
+ ['honest fallback: best move and its idea',['e4','e6','Bc4'],{eB:40,eA:-30,best:'d2d4 d7d5',reply:'d7d5 e4d5 e6d5',cls:'inaccuracy'},'danger','d5, which attacks your bishop on c4',''],
  ['honest fallback: nothing specific',['e4','e5','Nf3','Nc6','Bc4','Bc5','c3','Nf6','d3','d6','O-O','O-O','Re1','a6','a4','Ba7','h3','h6','Nbd2','Re8','Nf1','Be6','Bb3'],{eB:20,eA:-40,best:'c4e6 e8e6',reply:'d6d5 e4d5',cls:'inaccuracy'},null,'',''],
 ];
 // fill in the three cases that are easier to state as positions than as full games

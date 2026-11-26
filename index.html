@@ -89,6 +89,11 @@ footer{color:var(--muted);font-size:13px}
 .lesson dd{margin:2px 0 0}
 .sanl{font-weight:600;font-variant-numeric:tabular-nums}
 .lesson small{color:var(--muted);font-size:14px}
+.th{padding:12px 0;border-bottom:1px solid var(--line)}.th:first-child{padding-top:0}.th:last-child{border-bottom:0;padding-bottom:0}
+.thh{display:flex;justify-content:space-between;gap:12px;align-items:baseline}.thh span{color:var(--muted);font-size:14px;text-align:right}
+.thm{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.tm{display:inline-flex;align-items:center;gap:8px;padding:0 12px;font-size:14px}
+.tip{font-size:14px;color:var(--muted)}
 .vline{line-height:2.3;margin:6px 0}.vm{min-height:32px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
 .ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}
 html{scroll-padding-top:12px}
@@ -151,6 +156,7 @@ html{scroll-padding-top:12px}
 <div id="progWrap" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin-bottom:6px"><span id="ptx">Waiting for a game</span><span id="ppc"></span></div><div class="prog"><div id="pfill"></div></div></div>
 <div class="cards" style="margin-bottom:14px"><div class="card"><div class="k">Your accuracy</div><div class="v" id="accMe">-</div></div><div class="card"><div class="k" id="accOppLab">Opponent accuracy</div><div class="v" id="accOpp">-</div></div></div>
 <div class="panel" style="margin-bottom:14px"><h2>Key moments for you</h2><div id="keys"><p style="margin:0;color:var(--muted)">Appear once the engine has checked your moves.</p></div></div>
+<div class="panel" style="margin-bottom:14px"><h2>Your mistakes by theme</h2><div id="themes"><p style="margin:0;color:var(--muted)">Appears when the review is complete.</p></div></div>
 <div class="panel" style="margin-bottom:14px" id="coachBox"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><h2 style="margin:0">Coach's notes</h2><button id="coachBtn" type="button" class="go">Copy game for Claude</button></div><p id="coachHint" style="margin:0 0 8px;font-size:14px;color:var(--muted)">Copies this game with everything Stockfish found. Paste it into a chat with Claude for a full coaching review: why your mistakes happened and what to practice.</p><div class="coach" id="coach"></div></div>
 <div class="panel" style="margin-bottom:14px"><h2>Move ratings</h2><div class="rows" id="counts"></div></div>
 <div class="panel"><h2>Moves</h2><div class="ml" id="ml"></div></div>
@@ -510,7 +516,7 @@ const what=m=>m.captured===m.piece?PL[m.piece]:'minor pieces';
 if(bal<=-3&&even(mv)&&r&&r.captured&&r.to===mv.to)return{why:'behind',what:what(mv)};
 if(bal>=3&&b0&&b1&&even(b0)&&b1.captured&&b1.to===b0.to&&!mv.captured)return{why:'ahead',what:what(b0),san:b0.san};
 return null}
-const BAD=['inaccuracy','mistake','miss','blunder'];
+const BAD=['inaccuracy','mistake','miss','blunder'],SEV={inaccuracy:1,mistake:2,miss:2,blunder:3};
 // Mistake themes: [label, default habit, what to practice]
 const THEMES={
 hang:['Hanging pieces','Before you move, check that each of your pieces is defended.','Do a blunder check before every move: what does this move stop defending, and what can be captured now? Puzzle theme: hanging piece.'],
@@ -523,6 +529,8 @@ pawn:['Passed pawns','Stop a passed pawn early by putting a piece in front of it
 trade:['Trading decisions','Trade pieces when you are ahead. Keep them when you are behind.','After you win material, look for safe piece trades. When you are behind, keep pieces on and make threats.'],
 opening:['Opening development','In the opening, move each piece once, castle, and only then attack.','Use the opening trainer here and follow three rules: center pawns, minor pieces out, castle.'],
 convert:['Converting good positions','When you are winning, choose the simplest safe move.','When you are ahead, slow down: find the one threat your opponent has, stop it, then trade pieces.'],
+danger:['Pieces left in danger','Before you choose a move, check which of your pieces are attacked or can be chased.','After each opponent move, list what it attacks. Before your own move, check that no pawn or smaller piece can chase the piece you are moving.'],
+active:['Missed active moves','Look for moves that attack something or bring a new piece into play.','On quiet moves, find your least active piece and look for a move that brings it into the game with a threat: attack a piece, take an open file or gain space.'],
 position:['Quiet slips','When there is no tactic, improve your worst-placed piece.','Compare your move with the engine line and name the idea behind its first move.']};
 const HABITS={'hang.moved':'Before you let go of a piece, check every enemy piece that can capture on that square.','hang.guard':'Check what your piece was defending before you move it.','hang.ignored':'After every move your opponent makes, ask what it attacks.',
 fork:'Look for squares where one enemy piece could attack two of yours, especially with a knight or a check.',pin:'Be careful when one of your pieces stands in front of your king or queen on an open line.',skewer:'Avoid lining up your valuable pieces on the same file, rank or diagonal.',
@@ -585,9 +593,11 @@ if(om.why==='queen')return set('opening',(om.far?'This brings the queen out earl
 return set('opening','This pawn move does not help development: '+rest+'.',HABITS.pawn)}
 const theme=eB>=150&&eA<60?'convert':'position';
 const ri=RL.mv.length?moveIdea(fenA,RL.u[0],mv):null;
-if(ri&&ri.t==='attack'&&eA<eB)return set(theme,'This allows '+RL.mv[0].san+', which '+ideaText(ri,op,yo)+'.',HABITS['idea.chased'],'A');
-const bd=bm?moveIdea(fenB,BL.u[0],k>1?g.vm[k-2]:null):null,bi=ideaText(bd,yo,op);
-if(bi)return set(theme,'A stronger move was '+bs+', which '+bi+'.',HABITS['idea.'+bd.t],'M');
+if(ri&&ri.t==='attack'&&eA<eB)return set('danger','This allows '+RL.mv[0].san+', which '+ideaText(ri,op,yo)+'.',HABITS['idea.chased'],'A');
+// what the engine's move does, unless the move played does the same kind of thing
+const pv0=k>1?g.vm[k-2]:null,bd=bm?moveIdea(fenB,BL.u[0],pv0):null,pd=bd?moveIdea(fenB,g.ucis[k-1],pv0):null,bi=bd&&!(pd&&pd.t===bd.t&&pd.sq===bd.sq)?ideaText(bd,yo,op):'';
+const early=k<=24?'opening':'active',IT={guard:'danger',save:'danger',attack:'active',check:'active',file:'active',center:'active',passer:'active',develop:early,castle:early,trade:'trade',win:'capture',take:'capture'};
+if(bi)return set(IT[bd.t]||theme,'A stronger move was '+bs+', which '+bi+'.',HABITS['idea.'+bd.t],'M');
 const d=eB-eA,pref=bs?' The engine prefers '+bs+(Math.abs(eB)<9000&&Math.abs(eA)<9000&&d>=30?' and rates it '+(d/100).toFixed(1)+' pawns better.':'.'):'';
 if(eB>=150&&eA<60)return set(theme,'This gives away '+yo+' winning advantage.'+pref);
 if(eB>-60&&eA<=-150)return set(theme,'This hands '+them+' a clear advantage.'+pref);
@@ -608,7 +618,7 @@ if(c.reply.length)o.push((c.mine?'Opponent can now play: ':'I can now play: ')+n
 if(c.best.length)o.push('Engine line instead: '+numLine(k,c.best)+(c.bestWhy?' ('+c.best[0]+' '+c.bestWhy+')':''));
 if(c.mine&&c.habit)o.push('Habit: '+c.habit);return o}
 // The player's own mistakes in a game grouped by theme: [{theme,label,n,weight,moves:[{k,cls,san}]}], biggest first
-function themeSummary(g){const by={},W={inaccuracy:1,mistake:2,miss:2,blunder:3};for(let k=1;k<=g.san.length;k++){const c=g.cls[k];if(!BAD.includes(c)||((k%2===1)!==(g.me==='w')))continue;
+function themeSummary(g){const by={},W=SEV;for(let k=1;k<=g.san.length;k++){const c=g.cls[k];if(!BAD.includes(c)||((k%2===1)!==(g.me==='w')))continue;
 const m=coachMove(g,k);if(!m)continue;const t=by[m.theme]=by[m.theme]||{theme:m.theme,label:THEMES[m.theme][0],n:0,weight:0,moves:[]};t.n++;t.weight+=W[c];t.moves.push({k,cls:c,san:g.san[k-1]})}
 return Object.values(by).sort((a,b)=>b.weight-a.weight||b.n-a.n)}
 function list(){const T=G.san.length;let h='';for(let m=0;m<T;m+=2){h+='<span class="n">'+(m/2+1)+'.</span>';for(const k of[m+1,m+2]){if(k>T){h+='<span></span>';continue}h+='<button type="button" class="mb" data-i="'+k+'">'+(G.cls[k]?badge(G.cls[k]):'<span class="dot" style="background:var(--soft)"></span>')+esc(G.san[k-1])+'</button>'}}
@@ -623,6 +633,8 @@ let h='<div class="r" style="font-size:13px;color:var(--muted)"><span></span><sp
 ORDER.forEach(o=>h+='<div class="r"><span class="lab">'+badge(o)+C[o][0]+'</span><span style="font-weight:800">'+cnt[G.me][o]+'</span><span>'+cnt[opp][o]+'</span></div>');$('counts').innerHTML=h;
 const ks=[];for(let k=1;k<=G.san.length;k++){const c=G.cls[k];if(!c||((k%2===1)!==(G.me==='w')))continue;if(['brilliant','great','inaccuracy','mistake','miss','blunder'].includes(c))ks.push(k)}
 $('keys').innerHTML=ks.length?ks.map(k=>{const c=G.cls[k];const bs=['inaccuracy','mistake','miss','blunder'].includes(c)&&G.best[k-1]?sanOf(k-1,G.best[k-1]):'';return'<button type="button" class="km" data-i="'+k+'">'+badge(c)+Math.ceil(k/2)+(k%2?'. ':'... ')+esc(G.san[k-1])+'<small>'+(bs?'best '+esc(bs):C[c][0])+'</small></button>'}).join(''):'<p style="margin:0;color:var(--muted)">'+(G.done?'No big mistakes from you in this game. Clean play.':'Appear once the engine has checked your moves.')+'</p>';
+const th=G.done?themeSummary(G):null;
+$('themes').innerHTML=!th?'<p style="margin:0;color:var(--muted)">Appears when the review is complete.</p>':!th.length?'<p style="margin:0;color:var(--muted)">No inaccuracies, mistakes or blunders from you in this game.</p>':th.map(t=>'<div class="th"><div class="thh"><b>'+esc(t.label)+'</b><span>'+t.n+(t.n>1?' moves':' move')+'</span></div><div class="thm">'+t.moves.map(m=>'<button type="button" class="tm" data-i="'+m.k+'">'+badge(m.cls)+esc(Math.ceil(m.k/2)+(m.k%2?'. ':'... ')+m.san)+'</button>').join('')+'</div><div class="tip">'+esc(THEMES[t.theme][1])+'</div></div>').join('');
 $('coach').textContent='';}
 
 function classify(k){const mw=k%2===1;const f=cp=>mw?wpW(cp):1-wpW(cp);const before=f(G.ev[k-1]),after=f(G.ev[k]);const loss=Math.max(0,before-after);const isBest=G.best[k-1]===G.ucis[k-1];let c;
@@ -699,7 +711,8 @@ const prompt='You are a friendly, direct chess coach for Ibrahim Ali, a club pla
 try{await navigator.clipboard.writeText(prompt);$('coach').textContent='Copied. Open Claude, paste it into a chat, and send.'}catch(e){$('coach').innerHTML='<p style="margin:0 0 6px">Copy this text and paste it into Claude:</p><textarea readonly style="min-height:160px">'+esc(prompt)+'</textarea>'}});
 
 $('ml').addEventListener('click',e=>{const b=e.target.closest('.mb');if(b){V=null;i=+b.dataset.i;draw()}});
-$('keys').addEventListener('click',e=>{const b=e.target.closest('.km');if(b){V=null;i=+b.dataset.i;draw();$('board').scrollIntoView({behavior:'smooth',block:'center'})}});
+const jump=e=>{const b=e.target.closest('.km,.tm');if(b){V=null;i=+b.dataset.i;draw();$('board').scrollIntoView({behavior:'smooth',block:'center'})}};
+$('keys').addEventListener('click',jump);$('themes').addEventListener('click',jump);
 $('bFirst').onclick=()=>{if(V)V.vi=0;else i=0;draw()};$('bLast').onclick=()=>{if(V)V.vi=V.san.length;else if(G)i=G.san.length;draw()};
 $('bPrev').onclick=()=>{if(V){if(V.vi>0)V.vi--}else if(i>0)i--;draw()};$('bNext').onclick=()=>{if(V){if(V.vi<V.san.length)V.vi++}else if(G&&i<G.san.length)i++;draw()};$('bFlip').onclick=()=>{flip=!flip;draw()};
 document.addEventListener('keydown',e=>{if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')return;if(e.key==='ArrowLeft')$('bPrev').click();if(e.key==='ArrowRight')$('bNext').click()});
