@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ibrahim Ali's Chess Lab</title>
+<meta name="theme-color" content="#22301F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chess Lab">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet" crossorigin="anonymous">
@@ -318,6 +324,7 @@ footer{color:var(--muted);font-size:13px;padding:0 max(4vw,16px) 28px}
 <div class="panel"><h2>Saved games</h2><div class="hist" id="hist"><p class="mut" style="margin:0">Games you review are saved here automatically.</p></div></div>
 <div>
 <div class="panel" style="margin-bottom:18px"><h2>Your openings</h2><div id="opens"><p class="mut" style="margin:0">Your results by opening show up after a few games.</p></div></div>
+<div class="panel" id="appBox" style="margin-bottom:18px"></div>
 <div class="panel"><h2>Backup</h2><p id="saveNote" class="mut sm"></p><div class="brow" style="margin-top:0"><button id="bkDown" type="button">Download backup</button><label class="btn" for="bkFile" style="display:inline-flex;align-items:center">Restore backup</label><input id="bkFile" type="file" accept=".json,application/json" style="position:absolute;opacity:0;width:1px;height:1px"></div></div>
 </div>
 </div>

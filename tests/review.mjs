@@ -63,10 +63,10 @@ if (reach.fonts) {
   check(font, 'Google Font (Manrope) loads');
 }
 
-// Top-level navigation: three tabs, one section visible at a time, the loader open on a first visit.
-const shown = () => page.evaluate(() => ['review', 'openings', 'progress'].filter(id => !document.getElementById(id).hidden).join(','));
+// Top-level navigation: four tabs, one section visible at a time, the loader open on a first visit.
+const shown = () => page.evaluate(() => ['review', 'puzzles', 'openings', 'progress'].filter(id => !document.getElementById(id).hidden).join(','));
 const current = () => page.$$eval('.tabs a[aria-current=page]', as => as.map(a => a.dataset.tab).join(','));
-check(await page.$$eval('.tabs a', as => as.map(a => a.textContent).join(',')) === 'Review,Openings,Progress' && await shown() === 'review' && await current() === 'review', 'three tabs, Review open first');
+check(await page.$$eval('.tabs a', as => as.map(a => a.dataset.tab).join(',')) === 'review,puzzles,openings,progress' && await shown() === 'review' && await current() === 'review', 'four tabs, Review open first');
 check(await page.isVisible('#loader') && await page.isVisible('#ccList [data-cc]') && await page.isVisible('#pgn') && await page.isVisible('#goBtn'), 'loader with recent games and paste box is visible on a first visit');
 await page.click('.tabs a[data-tab=openings]');
 check(await shown() === 'openings' && await current() === 'openings' && await page.isVisible('#tboard') && (await page.$$('#lines .ln')).length > 5, 'Openings tab shows the trainer');
@@ -236,6 +236,7 @@ await pp.click('#hist [data-open="gold1"]'); await pp.click('#bNextM'); sizes.re
 await pp.click('#st-mist'); sizes.mistakes = await measure();
 await pp.click('#st-sum'); sizes.summary = await measure();
 await pp.click('.tabs a[data-tab=openings]'); sizes.openings = await measure();
+await pp.click('.tabs a[data-tab=puzzles]'); await pp.waitForTimeout(300); sizes.puzzles = await measure();
 check(Object.values(sizes).every(s => s.wide <= 0), 'nothing overflows sideways at 360 px in any tab', Object.entries(sizes).map(([k, v]) => k + ' ' + v.wide).join(', '));
 const tooSmall = Object.entries(sizes).flatMap(([k, v]) => v.small.map(x => k + ':' + x.id + ' ' + x.w + 'x' + x.h));
 check(tooSmall.length === 0, 'every button, tab and field is at least 44 px in both directions on a phone', [...new Set(tooSmall)].join(', '));

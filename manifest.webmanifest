@@ -1,0 +1,15 @@
+{
+  "name": "Ibrahim Ali's Chess Lab",
+  "short_name": "Chess Lab",
+  "description": "Review your chess.com games with Stockfish, solve puzzles from your own mistakes, and drill your openings.",
+  "start_url": "./#review",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3F2EE",
+  "theme_color": "#22301F",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

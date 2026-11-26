@@ -544,4 +544,41 @@ on('cl:games', renderMyOpenings);
 on('cl:book', () => { GC.clear(); renderMyOpenings(); });
 renderMyOpenings();
 
+// ---------------------------------------------------------------------------
+// 4. Works offline and installs like an app (sw.js and manifest.webmanifest)
+// ---------------------------------------------------------------------------
+let installEvt = null;
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+async function offlineReady() {
+  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller || !window.caches) return false;
+  try { const c = await caches.open('cl-core-v1'); return !!(await c.match('index.html', { ignoreSearch: true })) && !!(await c.match('stockfish-19-lite-single.wasm')); } catch (e) { return false; }
+}
+async function renderAppBox() {
+  const box = $('appBox');
+  if (!box) return;
+  const ready = await offlineReady();
+  let how;
+  if (standalone()) how = 'You are using the installed app.';
+  else if (installEvt) how = '<button type="button" id="installBtn" class="go">Install Chess Lab</button>';
+  else if (isIOS) how = 'On iPhone or iPad: open this page in Safari, tap Share, then Add to Home Screen.';
+  else how = 'In Chrome or Edge: open the browser menu and choose Install, or Add to Home screen on Android.';
+  box.innerHTML = '<h2>Use it as an app</h2><p class="sm" style="margin:0 0 8px">' + (ready
+    ? '<b>Works offline.</b> The site and the engine are saved on this device, so you can review games, solve puzzles and drill openings without a connection. Loading new games from chess.com still needs one.'
+    : 'Once this page has loaded fully online, it also works offline: reviews, puzzles and the opening trainer.') + '</p><div class="sm">' + how + '</div>';
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; renderAppBox(); });
+window.addEventListener('appinstalled', () => { installEvt = null; renderAppBox(); });
+document.addEventListener('click', async e => {
+  if (!e.target.closest('#installBtn') || !installEvt) return;
+  installEvt.prompt();
+  try { await installEvt.userChoice; } catch (x) {}
+  installEvt = null; renderAppBox();
+});
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => setTimeout(renderAppBox, 1500)).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => setTimeout(renderAppBox, 1500));
+}
+renderAppBox();
+
 })();
