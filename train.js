@@ -679,8 +679,8 @@ function deepHtml(g, k) {
   const fen = g.fens[k - 1], R = DR.get(fen + '|' + g.ucis[k - 1]);
   const youMoved = isMine(g, k), pov = cp => CL.fmt(youMoved ? cp : -cp);   // evals "for you", like the rest of the review
   if (!R) {
-    const busy = deepBusy ? ' disabled' : '';
-    return '<button type="button" class="lnb" data-deep="' + k + '"' + busy + '>Deep check with full Stockfish</button> <span class="tip">' + (deepBusy ? 'Busy with another move.' : deepHave ? 'Stronger and slower, about 10 seconds.' : 'Stronger and slower. The first time downloads about 95 MB' + (phoneish() ? ', best done on a laptop.' : '.')) + '</span>';
+    const tip = deepBusy ? 'Busy with another move.' : deepHave ? 'Checks this move with the full-strength engine: stronger and slower, about 10 seconds.' : 'Checks this move with the full-strength engine. The first time downloads about 95 MB' + (phoneish() ? ', best done on a laptop.' : '.');
+    return '<button type="button" class="lnb" data-deep="' + k + '" title="' + esc(tip) + '"' + (deepBusy ? ' disabled' : '') + '>Deep check</button>';
   }
   if (R.state === 'run') return '<b>Deep check:</b> <span class="tip">' + esc(R.msg) + '</span>';
   if (R.state === 'error') return '<b>Deep check:</b> <span class="tip">' + esc(R.msg) + '</span> <button type="button" class="lnb" data-deep="' + k + '" data-retry="1">Try again</button>';
@@ -700,8 +700,15 @@ function deepHtml(g, k) {
 function deepPaint() {
   const g = CL.G, k = CL.i, note = $('note');
   if (!note || !g || !g.done || CL.V || !k || !g.fens[k - 1] || !g.ucis[k - 1]) return;
+  // Before it runs, the button sits beside "Show the best line" so the lesson stays one screen tall.
+  // The result goes below the lesson, where the note box scrolls.
+  const R = DR.get(g.fens[k - 1] + '|' + g.ucis[k - 1]), lb = $('lineBtn'), inline = !R && !!lb;
   let box = $('deepBox');
-  if (!box) { box = document.createElement('div'); box.id = 'deepBox'; box.className = 'deep'; note.appendChild(box); }
+  if (!box || box.classList.contains('deepi') !== inline) {
+    if (box) box.remove();
+    box = document.createElement(inline ? 'span' : 'div'); box.id = 'deepBox'; box.className = inline ? 'deepi' : 'deep';
+    if (inline) lb.after(box); else note.appendChild(box);
+  }
   box.innerHTML = deepHtml(g, k);
 }
 on('cl:draw', () => { deepCached().then(deepPaint); });

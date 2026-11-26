@@ -43,8 +43,11 @@ if (!reach.fonts) await page.route(u => /fonts\.(googleapis|gstatic)\.com$/.test
 const reqs = [], bad = [], errors = [];
 if (arg('block')) await page.route(u => u.pathname.includes(arg('block')), r => r.abort());
 page.on('request', r => reqs.push(r.url()));
-page.on('requestfailed', r => bad.push(r.url() + ' ' + (r.failure() || {}).errorText));
-page.on('response', r => { if (r.status() >= 400) bad.push(r.url() + ' ' + r.status()); });
+// Netlify deploy previews inject their own review toolbar from app.netlify.com. It is not on the
+// live site and the isolation headers block it, so it is left out of the failed request check.
+const preview = u => /^https:\/\/app\.netlify\.com\//.test(u);
+page.on('requestfailed', r => { if (!preview(r.url())) bad.push(r.url() + ' ' + (r.failure() || {}).errorText); });
+page.on('response', r => { if (r.status() >= 400 && !preview(r.url())) bad.push(r.url() + ' ' + r.status()); });
 page.on('pageerror', e => errors.push(String(e)));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
