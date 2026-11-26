@@ -96,7 +96,7 @@ const lessons=[
  // [name, moves, options, expected theme, text that must appear, text that must not appear]
  ['hanging piece: moved to an undefended square',['e4','e5','Nf3','Nc6','Bc4','Nd4','Nxe5','Qg5','Nxf7','Qxg2','Rf1','Qxe4+','Be2','Nf3#'].slice(0,3).concat(['Nf6','Ng5','h6','Nxf7','Kxf7','d4','Bd6']),{eB:300,eA:-100,best:'f8b4 c2c3',reply:'e4e5 d6e5 d4e5'},null,'',''],
  ['hanging piece: stopped defending it',['e4','e5','Nf3','Nc6','Bc4','Bc5','d3','Nf6','Nc3','d6','Bg5','O-O','Nd5','Be6','Nh4'],{eB:80,eA:-250,best:'g5f6 g7f6',reply:'e6d5 e4d5 f6d5',cls:'blunder'},null,'',''],
- ['missed recapture',['d4','d5','c4','dxc4','e3','b5','a4','c6','axb5','a6'],{eB:-60,eA:-220,best:'c6b5 b1c3',reply:'b5c6 b8c6'},'capture','did not take back on b5',''],
+ ['missed recapture',['d4','d5','c4','dxc4','e3','b5','a4','c6','axb5','a6'],{eB:-60,eA:-220,best:'c6b5 b1c3',reply:'b5c6 b8c6'},'capture','did not take back on b5. cxb5 captures the pawn',''],
  ['recapture with another piece is not a missed recapture',['e4','e6','d4','d5','Bd3','Nc6','exd5','Qxd5'],{eB:-20,eA:-100,best:'e6d5 c2c3',reply:'g1f3 g8f6'},'!capture','','did not take back'],
  ['trade is not a hanging piece (Opera game, 4...Bxf3)',['e4','e5','Nf3','d6','d4','Bg4','dxe5','Bxf3'],{eB:-80,eA:-140,best:'b8d7 e5d6 f8d6',reply:'d1f3 d6e5 f1c4 d8f6',cls:'inaccuracy'},'!hang','','hanging'],
  ['discovered attack allowed (Legal trap, 4...g6)',['e4','e5','Nf3','d6','Bc4','Bg4','Nc3','g6'],{eB:-50,eA:-240,best:'b8c6 h2h3',reply:'f3e5 d6e5 d1g4'},'tactic','discovered attack',''],

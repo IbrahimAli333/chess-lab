@@ -82,7 +82,13 @@ footer{color:var(--muted);font-size:13px}
 .grp{font-size:13px;color:var(--muted);font-weight:600;margin:14px 0 6px}
 .ln{display:flex;align-items:center;gap:10px;width:100%;justify-content:flex-start;margin:0 0 6px;text-align:left}
 .ln.on{border-color:#81B64C;background:var(--sel)}
-.why{margin:8px 0 0;font-weight:600}
+.why{margin:0;font-weight:600}
+.evl{color:var(--muted);font-size:14px}
+.lesson{margin:10px 0 0;display:grid;gap:10px}
+.lesson dt{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.lesson dd{margin:2px 0 0}
+.sanl{font-weight:600;font-variant-numeric:tabular-nums}
+.lesson small{color:var(--muted);font-size:14px}
 .vline{line-height:2.3;margin:6px 0}.vm{min-height:32px;padding:0 6px;border:0;background:transparent;font-weight:600;border-radius:6px}.vm.on{background:var(--sel)}
 .ln small{margin-left:auto;color:var(--muted);font-weight:600;white-space:nowrap}
 html{scroll-padding-top:12px}
@@ -238,6 +244,15 @@ const d=(H.Date||H.UTCDate||'').split('.');g.date=d.length===3&&!/\?/.test(d[0])
 let s=g.white+g.black+(H.Date||'')+(H.UTCTime||H.EndTime||H.StartTime||'')+g.san.slice(0,30).join('');let x=0;for(const c of s)x=(x*31+c.charCodeAt(0))|0;g.id='g'+(x>>>0).toString(36)+g.san.length;
 g.ev=[];g.w2=[];g.best=[];g.cls=[];g.loss=[];g.pv=[];g.book=[];g.coach='';g.done=false}
 
+// The lesson for one mistake as HTML: what was wrong, what the other side can do now, the better move, the habit.
+function lessonHtml(L){const k=L.k,me=v=>fmt(G.me==='w'?v:-v),mw=k%2===1,w=v=>mw?v:-v;
+let h='<div class="evl">Engine eval for you: '+me(w(L.eB))+' before, '+me(w(L.eA))+' after</div><dl class="lesson">';
+h+='<div><dt>What went wrong</dt><dd class="why">'+esc(L.what)+'</dd>'+(L.cls==='miss'?'<dd><small>The move before was a mistake, and this one let the chance slip.</small></dd>':'')+'</div>';
+if(L.reply.length){const f=L.found==='yes'?(L.mine?'Your opponent found it.':'You found it.'):L.found?(L.mine?'Your opponent missed it and played ':'You missed it and played ')+L.found+'.':'';
+h+='<div><dt>'+(L.mine?'What your opponent can do now':'What you can do now')+'</dt><dd><span class="sanl">'+esc(numLine(k+1,L.reply))+'</span>'+(L.replyWhy?'<br>'+esc(L.reply[0]+' '+L.replyWhy+'.'):'')+(f?' <small>'+esc(f)+'</small>':'')+'</dd></div>'}
+if(L.best.length)h+='<div><dt>Best was '+esc(L.best[0])+'</dt><dd>'+(L.bestWhy?esc('It '+L.bestWhy+'.')+'<br>':'')+'<span class="sanl">'+esc(numLine(k,L.best))+'</span></dd></div>';
+if(L.mine&&L.habit)h+='<div><dt>Habit to build</dt><dd>'+esc(L.habit)+'</dd></div>';
+return h+'</dl>'}
 function draw(){if(!G)return;const V0=V;const fen=(V0?V0.fens[V0.vi]:G.fens[i]).split(' ')[0];const rows=fen.split('/').map(r=>{const a=[];for(const c of r){if(/\d/.test(c))for(let k=0;k<+c;k++)a.push('');else a.push(c)}return a});
 const bottom=flip?(G.me==='w'?'b':'w'):G.me;const last=V0?(V0.vi?V0.vm[V0.vi-1]:null):(i?G.vm[i-1]:null);let h='';
 for(let vr=0;vr<8;vr++)for(let vc=0;vc<8;vc++){const r=bottom==='w'?vr:7-vr,c=bottom==='w'?vc:7-vc;const sq='abcdefgh'[c]+(8-r);const light=(r+c)%2===0;const hl=last&&(sq===last.from||sq===last.to);const pc=rows[r][c];let inner='';
@@ -255,10 +270,10 @@ const e=G.ev[i];if(e!=null){$('evt').textContent=fmt(e);const wp=Math.round(wpW(
 if(V0){$('mvLab').textContent='Best line';lineNote();return}
 let n;if(!i)n='<b>Start of the game.</b> Step through with the arrows, tap any move, or jump to a key moment.';
 else{const c=G.cls[i];const mine=(i%2===1)===(G.me==='w');const who=mine?'You':'Your opponent';
-if(c){n='<span class="lab"><b>'+badge(c)+' '+esc(G.san[i-1])+' is '+(c==='inaccuracy'?'an ':'a ')+C[c][0].toLowerCase()+'</b></span>';
-if(!['best','great','brilliant','book'].includes(c)&&G.best[i-1]){const bs=sanOf(i-1,G.best[i-1]);if(bs)n+='<div style="color:var(--muted)">Best was '+esc(bs)+'</div><button type="button" id="lineBtn" style="margin-top:8px">Show the best line, 10 moves deep</button>'}
-if(['inaccuracy','mistake','miss','blunder'].includes(c)){const w=explain(i);if(w)n+='<div class="why">'+esc(w)+'</div>'}
-if(c==='miss')n+='<div style="color:var(--muted)">The move before was a mistake, and this one let the chance slip.</div>'}
+if(c){n='<span class="lab"><b>'+badge(c)+' '+esc(mlab(i))+' is '+(c==='inaccuracy'?'an ':'a ')+C[c][0].toLowerCase()+'</b></span>';
+const L=BAD.includes(c)?coachMove(G,i):null,bs=!['best','great','brilliant','book'].includes(c)&&G.best[i-1]?sanOf(i-1,G.best[i-1]):'';
+if(L)n+=lessonHtml(L);else if(bs)n+='<div style="color:var(--muted)">Best was '+esc(bs)+'</div>';
+if(bs)n+='<button type="button" id="lineBtn" style="margin-top:10px">Show the best line, 10 moves deep</button>'}
 else n=esc(who)+' played '+esc(G.san[i-1])+'. <span style="color:var(--muted)">Stockfish is still checking this move.</span>'}
 $('note').innerHTML=n;
 document.querySelectorAll('.mb').forEach(b=>b.classList.toggle('on',+b.dataset.i===i));
@@ -424,7 +439,7 @@ return t.n===1?who+' missed '+t.san+', which promotes the pawn.':who+' missed '+
 case'passer':{const far=(t.left===1?'one square':'two squares')+' from promoting';return allowed?'This lets '+O+' passed pawn reach '+t.sq+', '+far+'.':who+' missed '+t.san+', which puts a passed pawn '+far+'.'}
 case'hang':{const got=t.free||t.g>=SV[t.x]?(allowed?V+' ':'the ')+PN[t.x]:(t.x==='r'&&t.g===2?'the exchange':'material');
 if(t.lead)return(allowed?'This allows ':who+' missed ')+t.lead+' followed by '+t.san+', winning '+got+'.'}
-if(!allowed&&t.why==='recapture')return who+' did not take back'+on+': '+t.san+' wins '+(t.g>=SV[t.x]?'the '+PN[t.x]:'material')+'.';
+if(!allowed&&t.why==='recapture')return who+' did not take back'+on+'. '+t.san+' captures the '+PN[t.x]+'.';
 if(!allowed)return t.free&&t.x!=='p'?who+' missed a hanging '+PN[t.x]+': '+t.san+' wins it for free.':who+' missed '+t.san+', which wins '+(t.x==='p'?'a pawn':'material')+'.';
 if(t.why==='moved')return t.free?'This puts '+V+' '+PN[t.x]+on+' where nothing defends it: '+t.san+' wins it for free.':'This puts '+V+' '+PN[t.x]+on+' where it can be won: '+t.san+'.';
 if(t.why==='guard')return'This stops defending '+V+' '+PN[t.x]+on+', so '+t.san+' wins it.';
@@ -514,7 +529,10 @@ fork:'Look for squares where one enemy piece could attack two of yours, especial
 disc:'When two enemy pieces stand on one line aimed at you, expect the front one to move with a threat.',removal:'Count the defenders of each piece, then ask if one of them can be captured.',overload:'Do not give one piece two defensive jobs.',deflect:'Ask what each defender is holding, and what happens if it is forced to move.',
 trap:'Before you send a piece forward, check that it has a safe way back.',mate:'Before every move, look at every check your opponent has.',backrank:'Give your king an escape square before your rooks leave the back rank.',missmate:'Look at every check first. A forced line of checks can end the game.',
 recapture:'When something is captured, look at every way to take back before any other move.',nocastle:'Castle before the center opens. A king that has moved cannot castle.',twice:'Move each piece once in the opening before you move any piece twice.',queen:'Develop your knights and bishops before your queen.',
-pawn:'In the opening, prefer a developing move to an extra pawn move.',castle:'Castle early. It makes your king safe and connects your rooks.',stalemate:'When you are far ahead, check that your opponent still has a legal move.'};
+pawn:'In the opening, prefer a developing move to an extra pawn move.',
+'idea.attack':'Look for moves that attack something and force a reply.','idea.chased':'Before you place a piece, check if a pawn or a smaller piece can chase it away.','idea.develop':'Bring every piece into the game before you start an attack.','idea.castle':'Castle early. It makes your king safe and connects your rooks.',
+'idea.guard':'Before you choose a move, check which of your pieces are attacked.','idea.save':'Before you choose a move, check which of your pieces are attacked.','idea.trade':'When a trade is possible, compare the position with and without it.','idea.retake':'When something is captured, look at every way to take back before any other move.',
+'idea.win':'Look at every capture on every move. Free material comes first.','idea.take':'Look at every capture on every move, even the ones that look defended.','idea.file':'Put your rooks on open files.','idea.center':'Use your pawns to fight for the center.','idea.passer':'Passed pawns must be pushed. Support them and advance.','idea.check':'Look at every check on every move.',castle:'Castle early. It makes your king safe and connects your rooks.',stalemate:'When you are far ahead, check that your opponent still has a legal move.'};
 // Format SAN moves with move numbers. p: ply number (1 = White's first move) of the first move.
 function numLine(p,sans){return sans.map((s,j)=>{const q=p+j,n=Math.ceil(q/2);return(q%2?n+'. ':j?'':n+'... ')+s}).join(' ')}
 // Everything the review knows about move k of game g, as a short lesson:
@@ -567,9 +585,9 @@ if(om.why==='queen')return set('opening',(om.far?'This brings the queen out earl
 return set('opening','This pawn move does not help development: '+rest+'.',HABITS.pawn)}
 const theme=eB>=150&&eA<60?'convert':'position';
 const ri=RL.mv.length?moveIdea(fenA,RL.u[0],mv):null;
-if(ri&&ri.t==='attack'&&eA<eB)return set(theme,'This allows '+RL.mv[0].san+', which '+ideaText(ri,op,yo)+'.','','A');
-const bi=bm?ideaText(moveIdea(fenB,BL.u[0],k>1?g.vm[k-2]:null),yo,op):'';
-if(bi)return set(theme,'A stronger move was '+bs+', which '+bi+'.','','M');
+if(ri&&ri.t==='attack'&&eA<eB)return set(theme,'This allows '+RL.mv[0].san+', which '+ideaText(ri,op,yo)+'.',HABITS['idea.chased'],'A');
+const bd=bm?moveIdea(fenB,BL.u[0],k>1?g.vm[k-2]:null):null,bi=ideaText(bd,yo,op);
+if(bi)return set(theme,'A stronger move was '+bs+', which '+bi+'.',HABITS['idea.'+bd.t],'M');
 const d=eB-eA,pref=bs?' The engine prefers '+bs+(Math.abs(eB)<9000&&Math.abs(eA)<9000&&d>=30?' and rates it '+(d/100).toFixed(1)+' pawns better.':'.'):'';
 if(eB>=150&&eA<60)return set(theme,'This gives away '+yo+' winning advantage.'+pref);
 if(eB>-60&&eA<=-150)return set(theme,'This hands '+them+' a clear advantage.'+pref);
@@ -673,10 +691,11 @@ const id=d.dataset.del;if(db){try{await db.collection('games').doc(id).delete()}
 $('coachBtn').addEventListener('click',async()=>{if(!G)return;if(!G.done){$('coach').textContent='Wait for the engine to finish, then ask again.';return}
 const meC=G.me==='w'?'White':'Black';const lines=[];
 for(let k=1;k<=G.san.length;k++){const mine=(k%2===1)===(G.me==='w');const c=G.cls[k];if(!c)continue;
-if(mine&&['inaccuracy','mistake','miss','blunder','brilliant','great'].includes(c)){const pov=v=>(G.me==='w'?v:-v)/100;lines.push(Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c+'; engine best: '+(sanOf(k-1,G.best[k-1]||'')||'?')+'; eval for me before '+pov(G.ev[k-1]).toFixed(1)+', after '+pov(G.ev[k]).toFixed(1)+(['inaccuracy','mistake','miss','blunder'].includes(c)&&explain(k)?'; note: '+explain(k):''))}
+if(mine&&['inaccuracy','mistake','miss','blunder','brilliant','great'].includes(c)){const pov=v=>(G.me==='w'?v:-v)/100;lines.push(Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c+'; engine best: '+(sanOf(k-1,G.best[k-1]||'')||'?')+'; eval for me before '+pov(G.ev[k-1]).toFixed(1)+', after '+pov(G.ev[k]).toFixed(1));
+if(BAD.includes(c))coachLines(G,k).forEach((t,j)=>lines.push('   '+(j?'':'What went wrong: ')+t))}
 if(!mine&&['mistake','blunder'].includes(c))lines.push('Opponent '+Math.ceil(k/2)+(k%2?'. ':'... ')+G.san[k-1]+' = '+c)}
 let mv='';G.san.forEach((s,k)=>{mv+=(k%2===0?(k/2+1)+'. ':'')+s+' '});
-const prompt='You are a friendly, direct chess coach for Ibrahim Ali, a club player rated about 1100 to 1200 in rapid on chess.com. He played '+meC+' in this game. Result: '+G.result+'. Opening: '+G.opening+'.\n\nMoves: '+mv.trim()+'\n\nStockfish ratings of the key moves (evals in pawns from his side, positive is good for him):\n'+(lines.join('\n')||'No inaccuracies or worse from him.')+'\n\nAccuracy: him '+(acc(G.me)||0).toFixed(1)+', opponent '+(acc(G.me==='w'?'b':'w')||0).toFixed(1)+'.\n\nWrite his review in plain text with these four short sections, each starting with its title on its own line:\nVerdict (one sentence)\nWhat went well (2 points)\nBiggest mistakes (up to 3: the move, why it was a problem in simple words, and the habit that would have caught it)\nPractice this week (2 or 3 concrete tasks, like a puzzle theme or an opening line)\nRules: rely only on the engine data above and do not invent concrete variations you are not sure of. Use simple language. Never use em dashes. Use hyphen bullets. Under 230 words.';
+const prompt='You are a friendly, direct chess coach for Ibrahim Ali, a club player rated about 1100 to 1200 in rapid on chess.com. He played '+meC+' in this game. Result: '+G.result+'. Opening: '+G.opening+'.\n\nMoves: '+mv.trim()+'\n\nStockfish ratings of the key moves (evals in pawns from his side, positive is good for him). The indented lines under each mistake were checked on the board by the site: what went wrong, the line the opponent can play, the engine line instead, and a habit:\n'+(lines.join('\n')||'No inaccuracies or worse from him.')+'\n\nHis mistakes by theme: '+(themeSummary(G).map(t=>t.label+' '+t.n+' ('+t.moves.map(m=>Math.ceil(m.k/2)+(m.k%2?'. ':'... ')+m.san).join(', ')+')').join('; ')||'none')+'.\n\nAccuracy: him '+(acc(G.me)||0).toFixed(1)+', opponent '+(acc(G.me==='w'?'b':'w')||0).toFixed(1)+'.\n\nWrite his review in plain text with these four short sections, each starting with its title on its own line:\nVerdict (one sentence)\nWhat went well (2 points)\nBiggest mistakes (up to 3: the move, why it was a problem in simple words, and the habit that would have caught it)\nPractice this week (2 or 3 concrete tasks, like a puzzle theme or an opening line)\nRules: rely only on the engine data and the checked lines above and do not invent concrete variations you are not sure of. Use simple language. Never use em dashes. Use hyphen bullets. Under 230 words.';
 try{await navigator.clipboard.writeText(prompt);$('coach').textContent='Copied. Open Claude, paste it into a chat, and send.'}catch(e){$('coach').innerHTML='<p style="margin:0 0 6px">Copy this text and paste it into Claude:</p><textarea readonly style="min-height:160px">'+esc(prompt)+'</textarea>'}});
 
 $('ml').addEventListener('click',e=>{const b=e.target.closest('.mb');if(b){V=null;i=+b.dataset.i;draw()}});
